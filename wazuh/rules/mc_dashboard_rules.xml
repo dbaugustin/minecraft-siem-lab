@@ -146,6 +146,14 @@
     <group>admin_action,</group>
   </rule>
 
+  <!-- A new world is a new server container with its own game port. -->
+  <rule id="100118" level="7">
+    <if_sid>100100</if_sid>
+    <field name="event">^world_created$</field>
+    <description>Minecraft dashboard: $(user) created world $(world) on port $(port)</description>
+    <group>admin_action,</group>
+  </rule>
+
   <!-- ===== Access model check ===== -->
 
   <!--

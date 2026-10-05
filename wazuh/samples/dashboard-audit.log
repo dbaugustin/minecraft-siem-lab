@@ -10,6 +10,7 @@
 {"timestamp": "2026-10-05T18:01:18.010000+00:00", "app": "mc-dashboard", "event": "account_locked", "user": "david", "src_ip": "172.18.0.1"}
 {"timestamp": "2026-10-05T18:01:25.000000+00:00", "app": "mc-dashboard", "event": "login_blocked", "user": "david", "src_ip": "172.18.0.1", "reason": "locked_out"}
 {"timestamp": "2026-10-05T18:05:00.000000+00:00", "app": "mc-dashboard", "event": "login_failure", "user": "david", "src_ip": "192.168.1.50", "reason": "bad_password"}
+{"timestamp": "2026-10-05T18:09:00.000000+00:00", "app": "mc-dashboard", "event": "world_created", "user": "david", "src_ip": "172.18.0.1", "world": "survival", "port": 25565}
 {"timestamp": "2026-10-05T18:10:00.000000+00:00", "app": "mc-dashboard", "event": "server_start", "user": "david", "src_ip": "172.18.0.1", "world": "survival"}
 {"timestamp": "2026-10-05T18:20:00.000000+00:00", "app": "mc-dashboard", "event": "server_stop", "user": "david", "src_ip": "172.18.0.1", "world": "survival"}
 {"timestamp": "2026-10-05T18:21:00.000000+00:00", "app": "mc-dashboard", "event": "server_restart", "user": "david", "src_ip": "172.18.0.1", "world": "survival"}

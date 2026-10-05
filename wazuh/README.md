@@ -34,6 +34,7 @@ wazuh/
 | 100113 / 100114 | 3 / 8 | Backup created / backup failed |
 | 100115 / 100116 | 7 | Whitelist add / remove |
 | 100117 | 5 | World settings changed |
+| 100118 | 7 | New world created (a new server container with its own game port) |
 | 100120 | 12 | A login from an address that isn't the server box itself |
 
 `login_invalid_form` events are decoded but don't alert (level 0).
