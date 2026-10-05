@@ -9,6 +9,13 @@ Every line is one self-contained JSON object, for example:
 Wazuh's built-in JSON decoder parses each line into fields, so custom rules
 can match on `event`, `user`, `src_ip` and so on. The fixed "app" field gives
 those rules something to anchor on so they only fire for this dashboard.
+
+The dashboard manages several worlds, each its own server container
+(`mc-<world>`, see the README's "Worlds" section). Any event about one world
+carries a `world` field with that world's name, e.g.
+{"event": "server_stop", "world": "survival", ...}, so Wazuh rules and
+searches can tell worlds apart. Auth events aren't about a world, so they omit
+the field rather than logging null.
 """
 
 import json
@@ -32,8 +39,11 @@ def _client_ip():
     return request.remote_addr if request else None
 
 
-def audit(event, user=None, **details):
-    """Append one audit event. `details` become extra top-level fields."""
+def audit(event, user=None, world=None, **details):
+    """Append one audit event. `details` become extra top-level fields.
+
+    Pass `world` (the world name) for anything that acts on one world.
+    """
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "app": APP_NAME,
@@ -41,6 +51,8 @@ def audit(event, user=None, **details):
         "user": user,
         "src_ip": _client_ip(),
     }
+    if world is not None:
+        record["world"] = world
     record.update(details)
     line = json.dumps(record, separators=(", ", ": "))
 

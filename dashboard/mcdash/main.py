@@ -1,4 +1,9 @@
-"""Dashboard pages. Server controls (start/stop, RCON, backups) land here later."""
+"""Dashboard pages.
+
+Server controls (start/stop, RCON, backups, world settings) land here later.
+The dashboard manages several worlds, each its own server container, so those
+routes will be keyed by world name: /worlds/<world>/start, and so on.
+"""
 
 from flask import Blueprint, render_template, session
 
