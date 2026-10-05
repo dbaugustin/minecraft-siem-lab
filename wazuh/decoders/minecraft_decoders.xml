@@ -5,12 +5,21 @@
     Vanilla / Fabric:  [14:50:01] [Server thread/INFO]: Steve joined the game
     Paper / Spigot:    [14:50:01 INFO]: Steve joined the game
 
+  The agent prefixes every line with the file it came from (see out_format
+  in agent/localfile.conf), which is how the world name gets into the event:
+
+    /opt/minecraft-siem-lab/worlds/survival/data/logs/latest.log: [14:50:01] [Server thread/INFO]: ...
+
+  The prefix is optional, so raw lines pasted into wazuh-logtest still decode
+  (just without a world field).
+
   The parent decoder only recognises "this is a Minecraft log line".
   The child decoders all share the name "minecraft-fields" (Wazuh "sibling
   decoders"): every one of them is tried, and each adds whatever fields its
   regex captures. Rules then match on the message text and these fields.
 
   Fields produced:
+    world      world name, from the worlds/<world>/data/logs/ path
     level      INFO / WARN / ERROR / FATAL
     player     player name the line is about
     srcip      client address as the server sees it (behind playit.gg this is
@@ -22,13 +31,20 @@
 -->
 
 <decoder name="minecraft">
-  <prematch type="pcre2">^\[\d\d:\d\d:\d\d(?:\] \[[^\]]+/| )(?:INFO|WARN|ERROR|FATAL)\]: </prematch>
+  <prematch type="pcre2">^(?:\S*/worlds/[^/]+/data/logs/[^:]+: )?\[\d\d:\d\d:\d\d(?:\] \[[^\]]+/| )(?:INFO|WARN|ERROR|FATAL)\]: </prematch>
+</decoder>
+
+<!-- World name, from the path prefix. -->
+<decoder name="minecraft-fields">
+  <parent>minecraft</parent>
+  <regex type="pcre2">^\S*/worlds/([^/]+)/data/logs/[^:]+: \[</regex>
+  <order>world</order>
 </decoder>
 
 <!-- Log level, from the header. -->
 <decoder name="minecraft-fields">
   <parent>minecraft</parent>
-  <regex type="pcre2">^\[\d\d:\d\d:\d\d(?:\] \[[^\]]+/| )(INFO|WARN|ERROR|FATAL)\]: </regex>
+  <regex type="pcre2">\[\d\d:\d\d:\d\d(?:\] \[[^\]]+/| )(INFO|WARN|ERROR|FATAL)\]: </regex>
   <order>level</order>
 </decoder>
 

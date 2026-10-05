@@ -118,14 +118,19 @@ rule 100106  lvl 8   Minecraft dashboard: login attempt for locked account david
 rule 100120  lvl 12  Minecraft dashboard: login attempt from non-localhost address 192.168.1.50, dashboard may be exposed
 ...
 === minecraft-server.log ===
-rule 100210  lvl 5   Minecraft server: non-whitelisted player Griefer tried to join
-rule 100211  lvl 10  Minecraft server: 5 non-whitelisted join attempts on one world in 5 minutes
-rule 100242  lvl 10  Minecraft server: Rcon made Alex a server operator
-rule 100230  lvl 12  Minecraft server: CRASHED, report at /data/./crash-reports/crash-2026-10-05_18.10.01-server.txt
-rule 100235  lvl 14  Minecraft server: 2 crashes in 15 minutes, crash loop
-rule 100234  lvl 12  Minecraft server: started 3 times in 10 minutes, possible crash loop
+rule 100210  lvl 5   Minecraft world survival: non-whitelisted player Griefer tried to join
+rule 100211  lvl 10  Minecraft world survival: 5 non-whitelisted join attempts on one world in 5 minutes
+rule 100242  lvl 10  Minecraft world survival: Rcon made Alex a server operator
+rule 100230  lvl 12  Minecraft world survival: CRASHED, report at /data/./crash-reports/crash-2026-10-05_18.10.01-server.txt
+rule 100235  lvl 14  Minecraft world survival: 2 crashes in 15 minutes, crash loop
+rule 100234  lvl 12  Minecraft world survival: started 3 times in 10 minutes, possible crash loop
 ...
 ```
+
+Beyond logtest, the agent side was checked once inside the same container:
+the `localfile` blocks above, pointed at two world folders, produced alerts
+with `data.world` set to the right world, 3 starts split across two worlds
+did not fire the crash-loop rule, and 3 starts of one world did.
 
 To check a single line by hand: `docker exec -it $MGR /var/ossec/bin/wazuh-logtest`
 and paste it in.
@@ -164,9 +169,15 @@ wazuh-logtest proves the rules parse; these prove the whole pipeline
   the rule would fire. The blind spot is a home LAN that itself uses
   172.16.0.0/12 addresses (most use 192.168.x.x).
 - **Several worlds.** Each world is its own server with its own
-  `latest.log`, and the log lines don't name the world. The world shows in
-  each alert's `location` (the file path), and the counting rules use
-  `<same_location />` so two worlds' events never add up to one alert.
+  `latest.log`, and Minecraft's log lines don't name the world. The agent's
+  `out_format` puts the file path in front of every line
+  (`/opt/minecraft-siem-lab/worlds/survival/data/logs/latest.log: [18:00:00] ...`),
+  the decoder pulls `world` out of that path, and the counting rules use
+  `<same_field>world</same_field>` so two worlds' events never add up to one
+  alert. A raw line pasted into wazuh-logtest without the prefix still
+  decodes, but the alert reads "Minecraft world : ..." with no name.
+- **Dashboard events** about a world carry their own `world` field, so
+  dashboard and game alerts can be filtered by the same `data.world`.
 - **Source IPs on the game server.** Players come in through playit.gg, so
   the server sees the tunnel's address, not the player's real IP. `srcip` on
   Minecraft alerts is therefore the tunnel endpoint, which is why the
