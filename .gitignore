@@ -2,7 +2,7 @@
 .env
 
 # Runtime data written by the containers
-data/
+worlds/
 backups/
 logs/
 
