@@ -1,0 +1,63 @@
+# Minecraft server + management dashboard.
+# Wazuh runs separately (its own compose stack); it reads the log files
+# these services write to ./data/logs and ./logs via the Wazuh agent.
+
+services:
+  minecraft:
+    image: itzg/minecraft-server:latest
+    container_name: minecraft
+    restart: unless-stopped
+    environment:
+      EULA: "TRUE"
+      TYPE: ${MC_TYPE:-VANILLA}
+      VERSION: ${MC_VERSION:-LATEST}
+      MEMORY: ${MC_MEMORY:-2G}
+      # Account verification + whitelist are the game-side access controls.
+      ONLINE_MODE: "TRUE"
+      ENABLE_WHITELIST: "TRUE"
+      ENFORCE_WHITELIST: "TRUE"
+      WHITELIST: ${MC_WHITELIST:-}
+      OPS: ${MC_OPS:-}
+      # RCON is how the dashboard runs commands (list, whitelist add/remove).
+      # Port 25575 is reachable only on the internal compose network;
+      # it is intentionally NOT listed under `ports`.
+      ENABLE_RCON: "true"
+      RCON_PASSWORD: ${RCON_PASSWORD:?set RCON_PASSWORD in .env}
+    ports:
+      # The only port meant to be reachable from outside (via playit.gg).
+      - "25565:25565"
+    volumes:
+      # Put the existing world in ./data/world before first start.
+      # Server logs land in ./data/logs/latest.log (shipped to Wazuh).
+      - ./data:/data
+
+  dashboard:
+    build: ./dashboard
+    container_name: mc-dashboard
+    restart: unless-stopped
+    depends_on:
+      - minecraft
+    env_file: .env
+    environment:
+      RCON_HOST: minecraft
+      RCON_PORT: "25575"
+      MC_CONTAINER_NAME: minecraft
+      MC_DATA_DIR: /mc-data
+      BACKUP_DIR: /backups
+      AUDIT_LOG_PATH: /logs/audit.jsonl
+    ports:
+      # Published on the host's loopback interface only, so the dashboard is
+      # reachable at http://localhost:5000 on the server box and nowhere else.
+      # Never change this to "5000:5000" (that binds 0.0.0.0).
+      - "127.0.0.1:5000:5000"
+    volumes:
+      # Docker socket lets the dashboard start/stop/restart the minecraft
+      # container through the Docker SDK. Note: access to this socket is
+      # root-equivalent on the host, which is one more reason the dashboard
+      # stays localhost-only and behind a login.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # World data, read-only: the dashboard only needs to copy it for backups.
+      - ./data:/mc-data:ro
+      - ./backups:/backups
+      # JSON-lines audit log (logins, failed logins, admin actions) for Wazuh.
+      - ./logs:/logs
