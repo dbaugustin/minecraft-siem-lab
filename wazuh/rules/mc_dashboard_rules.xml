@@ -5,9 +5,11 @@
   turns every key of the line into a field, so these rules match on fields
   directly. Expected line shape:
 
-    {"timestamp": "...", "app": "mc-dashboard", "event": "login_failed",
-     "user": "david", "src_ip": "127.0.0.1", "outcome": "failure",
-     "target": "...", "detail": "..."}
+    {"timestamp": "2026-10-05T18:01:10+00:00", "app": "mc-dashboard",
+     "event": "login_failure", "user": "david", "src_ip": "127.0.0.1",
+     "reason": "bad_password"}
+
+  Field and event names follow dashboard/mcdash/audit.py.
 
   Rule IDs 100100-100199.
 -->
@@ -32,8 +34,8 @@
 
   <rule id="100102" level="5">
     <if_sid>100100</if_sid>
-    <field name="event">^login_failed$</field>
-    <description>Minecraft dashboard: failed login for user $(user)</description>
+    <field name="event">^login_failure$</field>
+    <description>Minecraft dashboard: failed login for user $(user) ($(reason))</description>
     <mitre>
       <id>T1110</id>
     </mitre>
@@ -53,12 +55,31 @@
   <!-- The dashboard's own lockout tripped. -->
   <rule id="100104" level="10">
     <if_sid>100100</if_sid>
-    <field name="event">^login_locked$</field>
+    <field name="event">^account_locked$</field>
     <description>Minecraft dashboard: account $(user) locked out after repeated failed logins</description>
     <mitre>
       <id>T1110</id>
     </mitre>
     <group>authentication_failures,</group>
+  </rule>
+
+  <!-- Someone kept trying while the account was already locked. -->
+  <rule id="100106" level="8">
+    <if_sid>100100</if_sid>
+    <field name="event">^login_blocked$</field>
+    <description>Minecraft dashboard: login attempt for locked account $(user)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>authentication_failures,</group>
+  </rule>
+
+  <!-- A form was posted without a valid CSRF token: a forged or replayed request. -->
+  <rule id="100107" level="7">
+    <if_sid>100100</if_sid>
+    <field name="event">^csrf_failure$</field>
+    <description>Minecraft dashboard: request rejected, missing or invalid CSRF token</description>
+    <group>web_attack,</group>
   </rule>
 
   <rule id="100105" level="3">
@@ -72,62 +93,75 @@
   <rule id="100110" level="5">
     <if_sid>100100</if_sid>
     <field name="event">^server_start$</field>
-    <description>Minecraft dashboard: $(user) started the server</description>
+    <description>Minecraft dashboard: $(user) started world $(world)</description>
     <group>admin_action,</group>
   </rule>
 
   <rule id="100111" level="7">
     <if_sid>100100</if_sid>
     <field name="event">^server_stop$</field>
-    <description>Minecraft dashboard: $(user) stopped the server</description>
+    <description>Minecraft dashboard: $(user) stopped world $(world)</description>
     <group>admin_action,</group>
   </rule>
 
   <rule id="100112" level="5">
     <if_sid>100100</if_sid>
     <field name="event">^server_restart$</field>
-    <description>Minecraft dashboard: $(user) restarted the server</description>
+    <description>Minecraft dashboard: $(user) restarted world $(world)</description>
     <group>admin_action,</group>
   </rule>
 
   <rule id="100113" level="3">
     <if_sid>100100</if_sid>
     <field name="event">^backup_created$</field>
-    <description>Minecraft dashboard: world backup created ($(target))</description>
+    <description>Minecraft dashboard: backup of world $(world) created ($(target))</description>
     <group>admin_action,</group>
   </rule>
 
   <rule id="100114" level="8">
     <if_sid>100100</if_sid>
     <field name="event">^backup_failed$</field>
-    <description>Minecraft dashboard: world backup FAILED</description>
+    <description>Minecraft dashboard: backup of world $(world) FAILED ($(reason))</description>
     <group>admin_action,</group>
   </rule>
 
   <rule id="100115" level="7">
     <if_sid>100100</if_sid>
     <field name="event">^whitelist_add$</field>
-    <description>Minecraft dashboard: $(user) added $(target) to the whitelist</description>
+    <description>Minecraft dashboard: $(user) added $(target) to the whitelist of world $(world)</description>
     <group>admin_action,</group>
   </rule>
 
   <rule id="100116" level="7">
     <if_sid>100100</if_sid>
     <field name="event">^whitelist_remove$</field>
-    <description>Minecraft dashboard: $(user) removed $(target) from the whitelist</description>
+    <description>Minecraft dashboard: $(user) removed $(target) from the whitelist of world $(world)</description>
+    <group>admin_action,</group>
+  </rule>
+
+  <rule id="100117" level="5">
+    <if_sid>100100</if_sid>
+    <field name="event">^world_settings_changed$</field>
+    <description>Minecraft dashboard: $(user) changed settings of world $(world)</description>
     <group>admin_action,</group>
   </rule>
 
   <!-- ===== Access model check ===== -->
 
   <!--
-    The dashboard is bound to 127.0.0.1, so every request should come from
-    loopback. A login event from any other address means the bind address or
-    firewall changed and the dashboard is reachable from the network.
+    The dashboard is published on 127.0.0.1 only, so every request should
+    come from the server box itself. Because the dashboard runs in Docker,
+    a request from the host's loopback reaches Flask from the Docker bridge
+    gateway (an address in 172.16.0.0/12), so that range counts as local
+    along with 127.0.0.1 and ::1.
+
+    If the port were ever published on 0.0.0.0, a request from another
+    machine keeps its real source address through Docker's NAT, and this
+    rule fires. Blind spot: a LAN that itself uses 172.16.0.0/12 addresses.
   -->
   <rule id="100120" level="12">
-    <if_sid>100101, 100102</if_sid>
-    <field name="src_ip" negate="yes">^127\.0\.0\.1$|^::1$</field>
+    <if_sid>100101, 100102, 100106</if_sid>
+    <field name="src_ip" type="pcre2" negate="yes">^(?:127\.|::1$|::ffff:127\.|172\.(?:1[6-9]|2\d|3[01])\.)</field>
     <description>Minecraft dashboard: login attempt from non-localhost address $(src_ip), dashboard may be exposed</description>
     <mitre>
       <id>T1133</id>
