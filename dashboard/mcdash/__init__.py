@@ -5,7 +5,11 @@ from flask_wtf.csrf import CSRFError, CSRFProtect
 
 from .audit import audit
 from .config import Config
+from .containers import WorldContainers, default_client_factory
 from .lockout import LoginLimiter
+from .rcon import Rcon
+from .service import WorldService
+from .worlds import WorldStore
 
 csrf = CSRFProtect()
 
@@ -33,13 +37,27 @@ def create_app(config_overrides=None):
         )
 
     # Every POST/PUT/PATCH/DELETE needs a valid CSRF token, including the
-    # server-control routes added later, not just the login form.
+    # world-control routes, not just the login form.
     csrf.init_app(app)
 
     app.extensions["login_limiter"] = LoginLimiter(
         threshold=app.config["LOCKOUT_THRESHOLD"],
         window=app.config["LOCKOUT_WINDOW"],
         duration=app.config["LOCKOUT_DURATION"],
+    )
+
+    # Tests swap these for fakes through config_overrides.
+    app.extensions["worlds"] = WorldService(
+        store=WorldStore(app.config["WORLDS_DIR"]),
+        containers=WorldContainers(
+            client_factory=app.config.get("DOCKER_CLIENT_FACTORY", default_client_factory),
+            image=app.config["MC_IMAGE"],
+            network=app.config["MC_NETWORK"],
+            host_worlds_dir=app.config["HOST_WORLDS_DIR"],
+            game_bind_ip=app.config["MC_GAME_BIND_IP"],
+        ),
+        rcon_factory=app.config.get("RCON_FACTORY", Rcon),
+        backup_dir=app.config["BACKUP_DIR"],
     )
 
     from . import auth, main

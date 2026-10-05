@@ -1,5 +1,42 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Worlds</h1>
-<p>Your worlds, with controls, console, players, backups and world settings, will appear here.</p>
+{% if worlds %}
+<table>
+  <thead><tr><th>World</th><th>Status</th><th>Port</th><th>Type</th><th>Version</th><th></th></tr></thead>
+  <tbody>
+  {% for w in worlds %}
+    <tr>
+      <td><a href="{{ url_for('main.world', name=w.name) }}">{{ w.name }}</a></td>
+      <td class="status {{ w.status | replace(' ', '-') }}">{{ w.status }}</td>
+      <td>{{ w.port }}</td>
+      <td>{{ w.type }}</td>
+      <td>{{ w.version }}</td>
+      <td>
+        {% for action in (['stop', 'restart'] if w.status == 'running' else ['start']) %}
+        <form class="inline" method="post" action="{{ url_for('main.lifecycle', name=w.name, action=action) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit">{{ action | capitalize }}</button>
+        </form>
+        {% endfor %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No worlds yet.</p>
+{% endif %}
+
+<section>
+  <h2>New world</h2>
+  <form method="post" action="{{ url_for('main.create_world') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Name <input name="name" required maxlength="32" pattern="[a-z0-9][a-z0-9_\-]*" placeholder="survival"></label>
+    <button type="submit">Create</button>
+  </form>
+  <p class="muted">Lowercase letters, digits, - and _. To import an existing world, copy it to
+  <code>worlds/&lt;name&gt;/data/world</code> first, then create a world with that name.
+  The new world gets the next free port from {{ config.MC_BASE_PORT }} up and the defaults from <code>.env</code>; change them on its page.</p>
+</section>
 {% endblock %}

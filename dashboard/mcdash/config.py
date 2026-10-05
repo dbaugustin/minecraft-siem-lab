@@ -36,3 +36,22 @@ class Config:
 
     # Flask-WTF CSRF tokens expire with the session rather than after 1 hour.
     WTF_CSRF_TIME_LIMIT = None
+
+    # --- Worlds (see the README's "Worlds" section) ---
+    # Paths as the dashboard sees them, and the worlds directory as the Docker
+    # host sees it (bind mounts for world containers need host paths).
+    WORLDS_DIR = os.environ.get("WORLDS_DIR", "worlds")
+    HOST_WORLDS_DIR = os.environ.get("HOST_WORLDS_DIR") or os.path.abspath(WORLDS_DIR)
+    BACKUP_DIR = os.environ.get("BACKUP_DIR", "backups")
+    MC_NETWORK = os.environ.get("MC_NETWORK", "mclab")
+    MC_IMAGE = os.environ.get("MC_IMAGE", "itzg/minecraft-server:latest")
+    # Host address each world's game port is published on. 127.0.0.1 keeps it
+    # reachable only through the playit.gg agent running on the same box. Set
+    # 0.0.0.0 only if friends should also join directly over the LAN.
+    MC_GAME_BIND_IP = os.environ.get("MC_GAME_BIND_IP", "127.0.0.1")
+
+    # Defaults for new worlds; each world can change them afterwards.
+    MC_DEFAULT_TYPE = os.environ.get("MC_DEFAULT_TYPE", "VANILLA")
+    MC_DEFAULT_VERSION = os.environ.get("MC_DEFAULT_VERSION", "LATEST")
+    MC_DEFAULT_MEMORY = os.environ.get("MC_DEFAULT_MEMORY", "2G")
+    MC_BASE_PORT = int(os.environ.get("MC_BASE_PORT", "25565"))
