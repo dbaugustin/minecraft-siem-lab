@@ -1,0 +1,16 @@
+{"timestamp": "2026-10-05T18:00:01.120Z", "app": "mc-dashboard", "event": "login_success", "user": "david", "src_ip": "127.0.0.1", "outcome": "success"}
+{"timestamp": "2026-10-05T18:00:02.540Z", "app": "mc-dashboard", "event": "logout", "user": "david", "src_ip": "127.0.0.1", "outcome": "success"}
+{"timestamp": "2026-10-05T18:01:10.001Z", "app": "mc-dashboard", "event": "login_failed", "user": "admin", "src_ip": "127.0.0.1", "outcome": "failure", "detail": "bad password"}
+{"timestamp": "2026-10-05T18:01:12.002Z", "app": "mc-dashboard", "event": "login_failed", "user": "admin", "src_ip": "127.0.0.1", "outcome": "failure", "detail": "bad password"}
+{"timestamp": "2026-10-05T18:01:14.003Z", "app": "mc-dashboard", "event": "login_failed", "user": "david", "src_ip": "127.0.0.1", "outcome": "failure", "detail": "bad password"}
+{"timestamp": "2026-10-05T18:01:16.004Z", "app": "mc-dashboard", "event": "login_failed", "user": "david", "src_ip": "127.0.0.1", "outcome": "failure", "detail": "bad password"}
+{"timestamp": "2026-10-05T18:01:18.005Z", "app": "mc-dashboard", "event": "login_failed", "user": "david", "src_ip": "127.0.0.1", "outcome": "failure", "detail": "bad password"}
+{"timestamp": "2026-10-05T18:01:18.010Z", "app": "mc-dashboard", "event": "login_locked", "user": "david", "src_ip": "127.0.0.1", "outcome": "failure", "detail": "locked for 15 minutes"}
+{"timestamp": "2026-10-05T18:05:00.000Z", "app": "mc-dashboard", "event": "login_failed", "user": "david", "src_ip": "192.168.1.50", "outcome": "failure", "detail": "bad password"}
+{"timestamp": "2026-10-05T18:10:00.000Z", "app": "mc-dashboard", "event": "server_start", "user": "david", "src_ip": "127.0.0.1", "outcome": "success"}
+{"timestamp": "2026-10-05T18:20:00.000Z", "app": "mc-dashboard", "event": "server_stop", "user": "david", "src_ip": "127.0.0.1", "outcome": "success"}
+{"timestamp": "2026-10-05T18:21:00.000Z", "app": "mc-dashboard", "event": "server_restart", "user": "david", "src_ip": "127.0.0.1", "outcome": "success"}
+{"timestamp": "2026-10-05T18:30:00.000Z", "app": "mc-dashboard", "event": "backup_created", "user": "david", "src_ip": "127.0.0.1", "outcome": "success", "target": "world-2026-10-05T18-30-00.tar.gz"}
+{"timestamp": "2026-10-05T18:31:00.000Z", "app": "mc-dashboard", "event": "backup_failed", "user": "david", "src_ip": "127.0.0.1", "outcome": "failure", "detail": "No space left on device"}
+{"timestamp": "2026-10-05T18:40:00.000Z", "app": "mc-dashboard", "event": "whitelist_add", "user": "david", "src_ip": "127.0.0.1", "outcome": "success", "target": "Steve"}
+{"timestamp": "2026-10-05T18:41:00.000Z", "app": "mc-dashboard", "event": "whitelist_remove", "user": "david", "src_ip": "127.0.0.1", "outcome": "success", "target": "Steve"}

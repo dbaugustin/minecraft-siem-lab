@@ -1,0 +1,24 @@
+[18:00:00] [ServerMain/INFO]: Starting minecraft server version 1.21.1
+[18:00:09] [Server thread/INFO]: Done (8.412s)! For help, type "help"
+[18:02:00] [Server thread/INFO]: Steve[/127.0.0.1:51234] logged in with entity id 152 at (12.5, 64.0, -30.5)
+[18:02:00] [Server thread/INFO]: Steve joined the game
+[18:03:00] [Server thread/INFO]: Steve left the game
+[18:04:01] [Server thread/INFO]: Disconnecting Griefer (/127.0.0.1:52001): You are not white-listed on this server!
+[18:04:05] [Server thread/INFO]: Griefer (/127.0.0.1:52002) lost connection: You are not white-listed on this server!
+[18:04:09] [Server thread/INFO]: Disconnecting Griefer (/127.0.0.1:52003): You are not white-listed on this server!
+[18:04:13] [Server thread/INFO]: Disconnecting Griefer (/127.0.0.1:52004): You are not white-listed on this server!
+[18:04:17] [Server thread/INFO]: Disconnecting Griefer (/127.0.0.1:52005): You are not white-listed on this server!
+[18:05:00] [Server thread/INFO]: Disconnecting Cracked1 (/127.0.0.1:52100): Failed to verify username!
+[18:06:00] [Server thread/INFO]: [Rcon: Added Alex to the whitelist]
+[18:06:30] [Server thread/INFO]: [Rcon: Removed Alex from the whitelist]
+[18:07:00] [Server thread/INFO]: [Rcon: Made Alex a server operator]
+[18:07:30] [Server thread/INFO]: [Rcon: Made Alex no longer a server operator]
+[18:08:00] [Server thread/WARN]: Can't keep up! Is the server overloaded? Running 5012ms or 100 ticks behind
+[18:09:00] [Server thread/INFO]: Stopping server
+[18:10:00] [Server Watchdog/FATAL]: A single server tick took 60.00 seconds (should be max 0.05)
+[18:10:01] [Server Watchdog/ERROR]: This crash report has been saved to: /data/./crash-reports/crash-2026-10-05_18.10.01-server.txt
+[18:10:30] [ServerMain/INFO]: Starting minecraft server version 1.21.1
+[18:11:29] [Server thread/ERROR]: Encountered an unexpected exception
+[18:11:30] [Server thread/ERROR]: This crash report has been saved to: /data/./crash-reports/crash-2026-10-05_18.11.30-server.txt
+[18:12:00] [ServerMain/INFO]: Starting minecraft server version 1.21.1
+[18:12:05 INFO]: Steve joined the game
