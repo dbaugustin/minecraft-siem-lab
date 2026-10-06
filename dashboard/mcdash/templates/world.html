@@ -100,4 +100,17 @@
   <p class="muted">Last {{ log_lines | length }} lines of <code>latest.log</code>. <a href="{{ url_for('main.world', name=world.name) }}">Refresh</a></p>
   {% if log_lines %}<pre class="log">{{ log_lines | join('\n') }}</pre>{% endif %}
 </section>
+
+<section class="danger">
+  <h2>Delete world</h2>
+  <p class="muted">Removes the server container and moves this world's folder to
+  <code>worlds/.deleted/</code>. Nothing is erased: backups are kept, and moving the folder
+  back to <code>worlds/{{ world.name }}</code> restores it. Stop the server first.</p>
+  <form method="post" action="{{ url_for('main.delete_world', name=world.name) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Type <code>{{ world.name }}</code> to confirm
+      <input name="confirm" required autocomplete="off"></label>
+    <button type="submit" {% if status in ('running', 'restarting') %}disabled{% endif %}>Delete world</button>
+  </form>
+</section>
 {% endblock %}

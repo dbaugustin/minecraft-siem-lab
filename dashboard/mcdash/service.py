@@ -85,6 +85,24 @@ class WorldService:
         with self.locked(name):
             self.containers.restart(self.store.load(name))
 
+    # ---- Delete ----
+
+    def delete(self, name):
+        """Remove the world's container and move its folder to worlds/.deleted/.
+
+        Nothing is erased: the folder (world.json and data/) is moved aside
+        and backups are kept, so a deleted world can be restored by hand.
+        A running world must be stopped first, so it gets to save.
+        Returns the path the folder was moved to.
+        """
+        with self.locked(name):
+            self.store.load(name)  # 404s on unknown names before touching Docker
+            if self.containers.status(name) in ("running", "restarting"):
+                raise WorldError(f"Stop {name} before deleting it.")
+            self.containers.remove(name)
+            stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
+            return self.store.move_to_trash(name, stamp)
+
     # ---- Settings ----
 
     def update_settings(self, name, form):

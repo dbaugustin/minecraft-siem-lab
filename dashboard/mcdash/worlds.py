@@ -33,6 +33,8 @@ MAX_PORT = 65535
 # The RCON port inside every world container. Not published, but keep game
 # ports off it anyway to avoid confusion.
 RCON_PORT = 25575
+# Deleted worlds are moved here, inside WORLDS_DIR, rather than erased.
+TRASH_DIR = ".deleted"
 
 # server.properties keys the dashboard lets you edit, and the itzg
 # environment variable that sets each one. itzg rewrites server.properties
@@ -105,6 +107,22 @@ class WorldStore:
 
     def _json_path(self, name):
         return os.path.join(self.world_dir(name), "world.json")
+
+    def trash_dir(self):
+        # Starts with a dot, so it can never be a world name (see NAME_RE).
+        return os.path.join(self.root, TRASH_DIR)
+
+    def move_to_trash(self, name, stamp):
+        """Move worlds/<name> to worlds/.deleted/<name>-<stamp>. Returns the new path.
+
+        A rename on the same filesystem, so it's instant and the world can be
+        put back by moving the folder back.
+        """
+        source = self.world_dir(name)
+        os.makedirs(self.trash_dir(), exist_ok=True)
+        target = os.path.join(self.trash_dir(), f"{name}-{stamp}")
+        os.rename(source, target)
+        return target
 
     def names(self):
         if not os.path.isdir(self.root):

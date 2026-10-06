@@ -35,6 +35,7 @@ wazuh/
 | 100115 / 100116 | 7 | Whitelist add / remove |
 | 100117 | 5 | World settings changed |
 | 100118 | 7 | New world created (a new server container with its own game port) |
+| 100119 | 10 | World deleted from the dashboard (container removed, folder moved to `worlds/.deleted/`) |
 | 100120 | 12 | A login from an address that isn't the server box itself |
 
 `login_invalid_form` events are decoded but don't alert (level 0).

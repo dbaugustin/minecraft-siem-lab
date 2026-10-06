@@ -19,3 +19,4 @@
 {"timestamp": "2026-10-05T18:40:00.000000+00:00", "app": "mc-dashboard", "event": "whitelist_add", "user": "david", "src_ip": "172.18.0.1", "world": "survival", "target": "Steve"}
 {"timestamp": "2026-10-05T18:41:00.000000+00:00", "app": "mc-dashboard", "event": "whitelist_remove", "user": "david", "src_ip": "172.18.0.1", "world": "survival", "target": "Steve"}
 {"timestamp": "2026-10-05T18:42:00.000000+00:00", "app": "mc-dashboard", "event": "world_settings_changed", "user": "david", "src_ip": "172.18.0.1", "world": "creative", "changed": ["difficulty", "motd"]}
+{"timestamp": "2026-10-05T18:50:00.000000+00:00", "app": "mc-dashboard", "event": "world_deleted", "user": "david", "src_ip": "172.18.0.1", "world": "creative", "target": "creative-2026-10-05T18-50-00"}

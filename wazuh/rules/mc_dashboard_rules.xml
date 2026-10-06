@@ -154,6 +154,15 @@
     <group>admin_action,</group>
   </rule>
 
+  <!-- Destructive: the world's container is removed and its folder moved to
+       worlds/.deleted/ ($(target) is the folder name there). -->
+  <rule id="100119" level="10">
+    <if_sid>100100</if_sid>
+    <field name="event">^world_deleted$</field>
+    <description>Minecraft dashboard: $(user) DELETED world $(world) (moved to worlds/.deleted/$(target))</description>
+    <group>admin_action,</group>
+  </rule>
+
   <!-- ===== Access model check ===== -->
 
   <!--

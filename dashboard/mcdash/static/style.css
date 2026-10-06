@@ -18,3 +18,5 @@ section { background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; paddi
 .grid label.check { flex-direction: row; align-items: center; gap: 6px; }
 pre.log { background: #111; color: #ddd; padding: 8px; max-height: 400px; overflow: auto; font-size: 12px; white-space: pre-wrap; }
 .muted { color: #666; }
+section.danger { border-color: #e8b4b4; }
+section.danger button { color: #8a1c1c; }

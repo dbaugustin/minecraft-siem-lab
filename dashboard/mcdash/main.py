@@ -6,6 +6,8 @@ writes one audit line with the world's name, using the event names the Wazuh
 rules in wazuh/rules/mc_dashboard_rules.xml match on.
 """
 
+import os
+
 from flask import (
     Blueprint,
     abort,
@@ -122,6 +124,26 @@ def lifecycle(name, action):
     audit(event, user=session["user"], world=name)
     flash(f"{name} {done}.", "info")
     return back_to(name)
+
+
+@bp.route("/worlds/<name>/delete", methods=["POST"])
+@login_required
+def delete_world(name):
+    load_or_404(name)
+    # Typed confirmation: the form must repeat the world's name exactly.
+    if request.form.get("confirm", "").strip() != name:
+        flash(f"Type the world's name ({name}) to confirm deleting it.", "error")
+        return back_to(name)
+    try:
+        moved_to = service().delete(name)
+    except ACTION_ERRORS as e:
+        flash(f"Could not delete {name}: {e}", "error")
+        return back_to(name)
+    folder = os.path.basename(moved_to)
+    audit("world_deleted", user=session["user"], world=name, target=folder)
+    flash(f"Deleted {name}. Its folder was moved to worlds/.deleted/{folder} "
+          "and its backups were kept.", "info")
+    return redirect(url_for("main.index"))
 
 
 @bp.route("/worlds/<name>/settings", methods=["POST"])

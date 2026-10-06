@@ -164,6 +164,12 @@ class WorldContainers:
         except DockerException as e:
             raise ContainerError(f"Could not replace the container: {e}") from e
 
+    def remove(self, world_name):
+        """Stop and remove the world's container, if it has one. Data is a bind mount and stays."""
+        container = self.get(world_name)
+        if container is not None:
+            self._remove(container)
+
     def recreate(self, world):
         """Rebuild the container from the current world.json.
 
