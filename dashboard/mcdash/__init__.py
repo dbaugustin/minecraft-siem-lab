@@ -8,6 +8,7 @@ from .config import Config
 from .containers import WorldContainers, default_client_factory
 from .lockout import LoginLimiter
 from .rcon import Rcon
+from .scheduler import BackupScheduler
 from .service import WorldService
 from .worlds import WorldStore
 
@@ -59,6 +60,16 @@ def create_app(config_overrides=None):
         rcon_factory=app.config.get("RCON_FACTORY", Rcon),
         backup_dir=app.config["BACKUP_DIR"],
     )
+
+    scheduler = BackupScheduler(
+        app,
+        interval_hours=app.config["BACKUP_INTERVAL_HOURS"],
+        retention=app.config["BACKUP_RETENTION"],
+    )
+    app.extensions["backup_scheduler"] = scheduler
+    # Tests drive the scheduler by calling run_once() themselves.
+    if app.config["BACKUP_INTERVAL_HOURS"] > 0 and not app.testing:
+        scheduler.start()
 
     from . import auth, main
 

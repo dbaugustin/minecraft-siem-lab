@@ -86,6 +86,10 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit">Back up now</button>
   </form>
+  <p class="muted">
+    {% if config.BACKUP_INTERVAL_HOURS > 0 %}While running, this world is also backed up automatically every {{ config.BACKUP_INTERVAL_HOURS | round(1) | replace('.0', '') }} hours.{% else %}Scheduled backups are off (<code>BACKUP_INTERVAL_HOURS=0</code>).{% endif %}
+    {% if config.BACKUP_RETENTION > 0 %}The newest {{ config.BACKUP_RETENTION }} backups are kept; older ones are deleted.{% endif %}
+  </p>
   {% if backups %}
   <ul>
     {% for b in backups %}<li>{{ b.file }} <span class="muted">({{ (b.size / 1048576) | round(1) }} MB)</span></li>{% endfor %}

@@ -43,6 +43,11 @@ class Config:
     WORLDS_DIR = os.environ.get("WORLDS_DIR", "worlds")
     HOST_WORLDS_DIR = os.environ.get("HOST_WORLDS_DIR") or os.path.abspath(WORLDS_DIR)
     BACKUP_DIR = os.environ.get("BACKUP_DIR", "backups")
+    # Keep only the newest N backups per world (0 keeps all). Applies to
+    # manual and scheduled backups alike.
+    BACKUP_RETENTION = int(os.environ.get("BACKUP_RETENTION", "10"))
+    # Running worlds are backed up automatically this often (0 turns it off).
+    BACKUP_INTERVAL_HOURS = float(os.environ.get("BACKUP_INTERVAL_HOURS", "24"))
     MC_NETWORK = os.environ.get("MC_NETWORK", "mclab")
     MC_IMAGE = os.environ.get("MC_IMAGE", "itzg/minecraft-server:latest")
     # Host address each world's game port is published on. 127.0.0.1 keeps it

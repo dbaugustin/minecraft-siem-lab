@@ -209,5 +209,15 @@ def backup(name):
         flash(f"Backup failed: {error_message(e)}", "error")
         return back_to(name)
     audit("backup_created", user=session["user"], world=name, target=filename)
-    flash(f"Backup saved as {filename}.", "info")
+    message = f"Backup saved as {filename}."
+    try:
+        pruned = service().prune_backups(name, current_app.config["BACKUP_RETENTION"])
+    except OSError as e:
+        pruned = []
+        message += f" Old backups couldn't be cleaned up: {e}"
+    for old in pruned:
+        audit("backup_pruned", user=session["user"], world=name, target=old)
+    if pruned:
+        message += f" Deleted {len(pruned)} older backup(s) to keep the newest {current_app.config['BACKUP_RETENTION']}."
+    flash(message, "info")
     return back_to(name)

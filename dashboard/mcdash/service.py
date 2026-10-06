@@ -21,6 +21,10 @@ from .rcon import RconError
 from .worlds import WorldError, parse_settings, valid_player
 
 
+class WorldBusyError(WorldError):
+    """Another action on the same world holds its lock."""
+
+
 class SettingsSavedError(Exception):
     """Settings were saved, but rebuilding the container failed."""
 
@@ -43,7 +47,7 @@ class WorldService:
         with self._locks_guard:
             lock = self._locks.setdefault(name, threading.Lock())
         if not lock.acquire(timeout=5):
-            raise WorldError("Another action on this world is still running. Try again shortly.")
+            raise WorldBusyError("Another action on this world is still running. Try again shortly.")
         try:
             yield
         finally:
@@ -224,6 +228,28 @@ class WorldService:
                     finally:
                         rcon.close()
             return filename
+
+    def prune_backups(self, name, keep):
+        """Delete all but the newest `keep` backups of a world. Returns the deleted names.
+
+        keep <= 0 keeps everything. File names end in a sortable UTC time, so
+        name order is age order.
+        """
+        if keep <= 0:
+            return []
+        directory = self.world_backup_dir(name)
+        removed = []
+        for backup in self.list_backups(name)[keep:]:
+            os.remove(os.path.join(directory, backup["file"]))
+            removed.append(backup["file"])
+        return removed
+
+    def newest_backup_time(self, name):
+        """mtime of the world's newest backup, or None if it has none."""
+        backups = self.list_backups(name)
+        if not backups:
+            return None
+        return os.path.getmtime(os.path.join(self.world_backup_dir(name), backups[0]["file"]))
 
     # ---- Log ----
 
