@@ -1,0 +1,163 @@
+<!--
+  Rules for the Minecraft server log, using decoders/minecraft_decoders.xml.
+
+  Each world is its own server with its own latest.log. The decoder takes the
+  world name from the file path the agent prefixes to each line, and the
+  counting rules use <same_field>world</same_field> so one world's events
+  never add up with another's.
+
+  Rule IDs 100200-100299.
+-->
+
+<group name="minecraft,">
+
+  <!-- Base: any line from the server log. Level 0 = decoded but no alert. -->
+  <rule id="100200" level="0">
+    <decoded_as>minecraft</decoded_as>
+    <description>Minecraft world $(world): log event</description>
+  </rule>
+
+  <!-- ===== Players ===== -->
+
+  <rule id="100201" level="3">
+    <if_sid>100200</if_sid>
+    <match>logged in with entity id</match>
+    <description>Minecraft world $(world): $(player) connected from $(srcip)</description>
+  </rule>
+
+  <rule id="100202" level="3">
+    <if_sid>100200</if_sid>
+    <match type="pcre2">\]: \w+ joined the game$</match>
+    <description>Minecraft world $(world): $(player) joined the game</description>
+  </rule>
+
+  <rule id="100203" level="2">
+    <if_sid>100200</if_sid>
+    <match type="pcre2">\]: \w+ left the game$</match>
+    <description>Minecraft world $(world): $(player) left the game</description>
+  </rule>
+
+  <!-- ===== Access control ===== -->
+
+  <rule id="100210" level="5">
+    <if_sid>100200</if_sid>
+    <match>You are not white-listed on this server</match>
+    <description>Minecraft world $(world): non-whitelisted player $(player) tried to join</description>
+    <group>access_denied,</group>
+  </rule>
+
+  <rule id="100211" level="10" frequency="5" timeframe="300">
+    <if_matched_sid>100210</if_matched_sid>
+    <same_field>world</same_field>
+    <description>Minecraft world $(world): 5 non-whitelisted join attempts on one world in 5 minutes</description>
+    <group>access_denied,</group>
+  </rule>
+
+  <!-- online-mode rejected a client that could not prove a Microsoft account. -->
+  <rule id="100212" level="5">
+    <if_sid>100200</if_sid>
+    <match>Failed to verify username</match>
+    <description>Minecraft world $(world): login rejected, account could not be verified (online-mode)</description>
+    <group>authentication_failed,</group>
+  </rule>
+
+  <!-- ===== Server lifecycle ===== -->
+
+  <rule id="100220" level="3">
+    <if_sid>100200</if_sid>
+    <match>Starting minecraft server version</match>
+    <description>Minecraft world $(world): starting (version $(mc_version))</description>
+  </rule>
+
+  <rule id="100221" level="3">
+    <if_sid>100200</if_sid>
+    <match type="pcre2">\]: Done \([\d.]+s\)! For help</match>
+    <description>Minecraft world $(world): finished starting</description>
+  </rule>
+
+  <rule id="100222" level="3">
+    <if_sid>100200</if_sid>
+    <match type="pcre2">\]: Stopping (?:the )?server$</match>
+    <description>Minecraft world $(world): shutting down</description>
+  </rule>
+
+  <!-- ===== Crashes ===== -->
+
+  <rule id="100230" level="12">
+    <if_sid>100200</if_sid>
+    <match>crash report has been saved to</match>
+    <description>Minecraft world $(world): CRASHED, report at $(crash_report)</description>
+    <group>service_availability,</group>
+  </rule>
+
+  <rule id="100231" level="12">
+    <if_sid>100200</if_sid>
+    <match>A single server tick took</match>
+    <description>Minecraft world $(world): watchdog killed a hung server tick</description>
+    <group>service_availability,</group>
+  </rule>
+
+  <rule id="100232" level="10">
+    <if_sid>100200</if_sid>
+    <match>Encountered an unexpected exception</match>
+    <description>Minecraft world $(world): unhandled exception in the server loop</description>
+    <group>service_availability,</group>
+  </rule>
+
+  <rule id="100233" level="3">
+    <if_sid>100200</if_sid>
+    <match>Can't keep up! Is the server overloaded</match>
+    <description>Minecraft world $(world): server is lagging (can't keep up)</description>
+  </rule>
+
+  <!--
+    Crash loop: the container restart policy brings the server back after
+    every crash, so a loop shows up as repeated startups in a short window.
+  -->
+  <rule id="100234" level="12" frequency="3" timeframe="600">
+    <if_matched_sid>100220</if_matched_sid>
+    <same_field>world</same_field>
+    <description>Minecraft world $(world): started 3 times in 10 minutes, possible crash loop</description>
+    <group>service_availability,</group>
+  </rule>
+
+  <rule id="100235" level="14" frequency="2" timeframe="900">
+    <if_matched_sid>100230</if_matched_sid>
+    <same_field>world</same_field>
+    <description>Minecraft world $(world): 2 crashes in 15 minutes, crash loop</description>
+    <group>service_availability,</group>
+  </rule>
+
+  <!-- ===== Admin commands seen by the game server ===== -->
+  <!-- "Rcon" as the actor means the command came from the dashboard over RCON. -->
+
+  <rule id="100240" level="5">
+    <if_sid>100200</if_sid>
+    <match type="pcre2">\[\w+: Added \w+ to the whitelist\]</match>
+    <description>Minecraft world $(world): $(actor) added $(player) to the whitelist</description>
+    <group>admin_action,</group>
+  </rule>
+
+  <rule id="100241" level="5">
+    <if_sid>100200</if_sid>
+    <match type="pcre2">\[\w+: Removed \w+ from the whitelist\]</match>
+    <description>Minecraft world $(world): $(actor) removed $(player) from the whitelist</description>
+    <group>admin_action,</group>
+  </rule>
+
+  <!-- Operator grants full in-game admin, so it is worth a louder alert. -->
+  <rule id="100242" level="10">
+    <if_sid>100200</if_sid>
+    <match type="pcre2">\[\w+: Made \w+ a server operator\]</match>
+    <description>Minecraft world $(world): $(actor) made $(player) a server operator</description>
+    <group>admin_action,privilege_escalation,</group>
+  </rule>
+
+  <rule id="100243" level="5">
+    <if_sid>100200</if_sid>
+    <match type="pcre2">\[\w+: Made \w+ no longer a server operator\]</match>
+    <description>Minecraft world $(world): $(actor) removed operator from $(player)</description>
+    <group>admin_action,</group>
+  </rule>
+
+</group>
