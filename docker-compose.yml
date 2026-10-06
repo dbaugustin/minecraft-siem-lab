@@ -1,0 +1,49 @@
+# Management dashboard. Wazuh runs separately (its own compose stack) and
+# reads the log files written under ./worlds and ./logs via the Wazuh agent.
+#
+# Minecraft servers are NOT defined here. Each world is its own
+# itzg/minecraft-server container that the dashboard creates, recreates and
+# removes through the Docker SDK, so worlds can be added from the UI without
+# editing this file. See "Worlds" in the README.
+
+services:
+  dashboard:
+    build: ./dashboard
+    container_name: mc-dashboard
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Paths as seen inside this container.
+      WORLDS_DIR: /worlds
+      BACKUP_DIR: /backups
+      AUDIT_LOG_PATH: /logs/audit.jsonl
+      # The same worlds directory as seen by the Docker host. Containers the
+      # dashboard creates are started by the host's Docker daemon, so their
+      # bind mounts must use host paths, not paths inside this container.
+      HOST_WORLDS_DIR: ${HOST_WORLDS_DIR:-${PWD}/worlds}
+      # World containers join this network so the dashboard can reach their
+      # RCON ports by container name without publishing them on the host.
+      MC_NETWORK: mclab
+    ports:
+      # Published on the host's loopback interface only, so the dashboard is
+      # reachable at http://localhost:5000 on the server box and nowhere else.
+      # Never change this to "5000:5000" (that binds 0.0.0.0).
+      - "127.0.0.1:5000:5000"
+    networks:
+      - mclab
+    volumes:
+      # Docker socket lets the dashboard create/start/stop world containers
+      # through the Docker SDK. Access to this socket is root-equivalent on
+      # the host, which is one more reason the dashboard stays localhost-only
+      # and behind a login.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # One subdirectory per world: world.json (settings) + data/ (server files).
+      - ./worlds:/worlds
+      - ./backups:/backups
+      # JSON-lines audit log (logins, failed logins, admin actions) for Wazuh.
+      - ./logs:/logs
+
+networks:
+  mclab:
+    # Fixed name so containers created outside compose can join it.
+    name: mclab
