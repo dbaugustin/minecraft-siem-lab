@@ -100,6 +100,20 @@ class FakeContainer:
         self.calls.append("remove")
         self.removed = True
 
+    # A cgroup v2 sample as `docker stats` sees it: 2 of 4 cores' worth
+    # of CPU time over the sample, 1.5 GiB used plus 512 MiB of page cache.
+    stats_sample = {
+        "cpu_stats": {"cpu_usage": {"total_usage": 3_000_000_000}, "system_cpu_usage": 104_000_000_000,
+                      "online_cpus": 4},
+        "precpu_stats": {"cpu_usage": {"total_usage": 1_000_000_000}, "system_cpu_usage": 100_000_000_000},
+        "memory_stats": {"usage": 2 * 1024**3, "limit": 16 * 1024**3,
+                         "stats": {"inactive_file": 512 * 1024**2}},
+    }
+
+    def stats(self, stream=True):
+        assert stream is False
+        return self.stats_sample
+
 
 class _Containers:
     def __init__(self):

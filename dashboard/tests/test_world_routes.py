@@ -37,7 +37,7 @@ def last_event(audit_path):
 
 @pytest.mark.parametrize("path", [
     "/worlds", "/worlds/survival/start", "/worlds/survival/stop", "/worlds/survival/settings",
-    "/worlds/survival/whitelist/add", "/worlds/survival/backup",
+    "/worlds/survival/whitelist/add", "/worlds/survival/backup", "/worlds/survival/delete",
 ])
 def test_actions_need_login(client, docker_fake, path):
     resp = client.post(path, data={"name": "survival"})
@@ -400,3 +400,65 @@ def test_log_tail_shows_spigot_build_before_first_start(logged_in, tmp_path):
     data.joinpath("logs", "latest.log").write_text("Done (3.1s)!\n")
     page = logged_in.get("/worlds/survival").get_data(as_text=True)
     assert "Done (3.1s)!" in page and "Downloading BuildTools" not in page
+
+
+# ---- Delete ----
+
+def test_delete_moves_folder_aside_and_removes_container(logged_in, app, docker_fake, audit_path, tmp_path):
+    create(logged_in)
+    (tmp_path / "worlds" / "survival" / "data" / "world").mkdir()
+    post(logged_in, "/worlds/survival/start")
+    post(logged_in, "/worlds/survival/backup")
+    post(logged_in, "/worlds/survival/stop")
+
+    resp = post(logged_in, "/worlds/survival/delete", {"confirm": "survival"})
+
+    assert resp.headers["Location"] == "/"
+    assert docker_fake.containers.by_name["mc-survival"].removed
+    assert not (tmp_path / "worlds" / "survival").exists()
+    [moved] = (tmp_path / "worlds" / ".deleted").iterdir()
+    assert moved.name.startswith("survival-")
+    assert (moved / "world.json").is_file() and (moved / "data" / "world").is_dir()
+    assert len(list((tmp_path / "backups" / "survival").iterdir())) == 1  # backups kept
+    event = last_event(audit_path)
+    assert (event["event"], event["world"], event["target"]) == ("world_deleted", "survival", moved.name)
+    assert app.extensions["worlds"].store.names() == []
+    # The name is free again, and the trash folder is never listed as a world.
+    create(logged_in)
+    assert app.extensions["worlds"].store.names() == ["survival"]
+
+
+@pytest.mark.parametrize("confirm", ["", "Survival", "creative"])
+def test_delete_needs_typed_name(logged_in, app, audit_path, tmp_path, confirm):
+    create(logged_in)
+    post(logged_in, "/worlds/survival/delete", {"confirm": confirm})
+    assert (tmp_path / "worlds" / "survival" / "world.json").is_file()
+    assert last_event(audit_path)["event"] == "world_created"
+
+
+def test_delete_refused_while_running(logged_in, docker_fake, audit_path, tmp_path):
+    create(logged_in)
+    post(logged_in, "/worlds/survival/start")
+    resp = post(logged_in, "/worlds/survival/delete", {"confirm": "survival"})
+    assert resp.headers["Location"] == "/worlds/survival"
+    assert docker_fake.containers.by_name["mc-survival"].calls == ["start"]
+    assert (tmp_path / "worlds" / "survival" / "world.json").is_file()
+    assert last_event(audit_path)["event"] == "server_start"
+
+
+def test_delete_never_created_world(logged_in, docker_fake, tmp_path):
+    create(logged_in)
+    post(logged_in, "/worlds/survival/delete", {"confirm": "survival"})
+    assert not (tmp_path / "worlds" / "survival").exists()
+
+
+def test_delete_refused_with_foreign_container(logged_in, docker_fake, audit_path, tmp_path):
+    create(logged_in)
+    impostor = docker_fake.containers.create("someone/else", name="mc-survival", labels={})
+    post(logged_in, "/worlds/survival/delete", {"confirm": "survival"})
+    assert impostor.calls == []
+    assert (tmp_path / "worlds" / "survival" / "world.json").is_file()
+
+
+def test_delete_unknown_world_404(logged_in):
+    assert post(logged_in, "/worlds/nope/delete", {"confirm": "nope"}).status_code == 404

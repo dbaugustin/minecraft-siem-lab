@@ -6,6 +6,8 @@ writes one audit line with the world's name, using the event names the Wazuh
 rules in wazuh/rules/mc_dashboard_rules.xml match on.
 """
 
+import os
+
 from flask import (
     Blueprint,
     abort,
@@ -90,6 +92,7 @@ def world(name):
         "world.html",
         world=world,
         status=svc.containers.status(name),
+        stats=svc.containers.stats(name),
         players=svc.online_players(world),
         backups=svc.list_backups(name),
         log_lines=svc.log_tail(name),
@@ -122,6 +125,26 @@ def lifecycle(name, action):
     audit(event, user=session["user"], world=name)
     flash(f"{name} {done}.", "info")
     return back_to(name)
+
+
+@bp.route("/worlds/<name>/delete", methods=["POST"])
+@login_required
+def delete_world(name):
+    load_or_404(name)
+    # Typed confirmation: the form must repeat the world's name exactly.
+    if request.form.get("confirm", "").strip() != name:
+        flash(f"Type the world's name ({name}) to confirm deleting it.", "error")
+        return back_to(name)
+    try:
+        moved_to = service().delete(name)
+    except ACTION_ERRORS as e:
+        flash(f"Could not delete {name}: {e}", "error")
+        return back_to(name)
+    folder = os.path.basename(moved_to)
+    audit("world_deleted", user=session["user"], world=name, target=folder)
+    flash(f"Deleted {name}. Its folder was moved to worlds/.deleted/{folder} "
+          "and its backups were kept.", "info")
+    return redirect(url_for("main.index"))
 
 
 @bp.route("/worlds/<name>/settings", methods=["POST"])
@@ -187,5 +210,15 @@ def backup(name):
         flash(f"Backup failed: {error_message(e)}", "error")
         return back_to(name)
     audit("backup_created", user=session["user"], world=name, target=filename)
-    flash(f"Backup saved as {filename}.", "info")
+    message = f"Backup saved as {filename}."
+    try:
+        pruned = service().prune_backups(name, current_app.config["BACKUP_RETENTION"])
+    except OSError as e:
+        pruned = []
+        message += f" Old backups couldn't be cleaned up: {e}"
+    for old in pruned:
+        audit("backup_pruned", user=session["user"], world=name, target=old)
+    if pruned:
+        message += f" Deleted {len(pruned)} older backup(s) to keep the newest {current_app.config['BACKUP_RETENTION']}."
+    flash(message, "info")
     return back_to(name)

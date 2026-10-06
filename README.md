@@ -2,34 +2,42 @@
 
 Self-hosted Minecraft servers (one per world) managed by a localhost-only Flask dashboard, with the game servers and the dashboard all monitored by Wazuh SIEM.
 
-> Status: scaffold. Sections marked _TODO_ get filled in as features are built.
+> Status: working prototype. The dashboard features below are built and tested with Docker and RCON mocked; a full run needs a machine with Docker.
 
 ## Architecture
 
-```
-               friends (internet)
-                      │
-                playit.gg tunnels
-                      │  one game port per world (25565, 25566, ...)
-┌─────────────────────▼───────────────────────────── server box ──┐
-│  ┌───────────────┐ ┌───────────────┐                            │
-│  │ mc-survival   │ │ mc-creative   │ ...  itzg/minecraft-server │
-│  └──────▲────────┘ └──────▲────────┘      one container / world │
-│         │ RCON :25575 on the internal "mclab" network           │
-│         │                 │                                     │
-│  ┌──────┴─────────────────┴─────┐                               │
-│  │ dashboard (Flask)            │◄── you, browser on the box    │
-│  │ 127.0.0.1:5000               │                               │
-│  │ creates/recreates world      │                               │
-│  │ containers via docker.sock   │                               │
-│  └──────────────┬───────────────┘                               │
-│  worlds/*/data/logs/latest.log    logs/audit.jsonl              │
-│                 └──────┬───────────────┘                        │
-│              Wazuh agent (localfile) ──► Wazuh manager          │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    friends(["Friends on the internet"])
+    you(["You, browser on the server box"])
+
+    subgraph box["Server box"]
+        playit["playit.gg agent<br/>one tunnel per world"]
+        subgraph net["Docker network: mclab"]
+            dash["Dashboard (Flask)<br/>127.0.0.1:5000 only"]
+            mc["World containers<br/>mc-survival, mc-creative, ...<br/>itzg/minecraft-server"]
+        end
+        sock[["docker.sock"]]
+        files[("worlds/ · backups/<br/>logs/audit.jsonl")]
+        agent["Wazuh agent"]
+    end
+    manager["Wazuh manager<br/>(separate stack, see wazuh/)"]
+
+    friends -->|game port per world| playit
+    playit -->|127.0.0.1:25565, 25566, ...| mc
+    you --> dash
+    dash -->|create, start, stop, stats| sock
+    sock -.->|runs| mc
+    dash -->|"RCON :25575, never published"| mc
+    dash -->|settings, backups, audit log| files
+    mc -->|"/data bind mount"| files
+    files -->|server logs + audit log| agent
+    agent --> manager
 ```
 
-_TODO: replace with a proper diagram._
+- **One container per world.** The dashboard creates each `mc-<world>` container itself through the Docker socket; `docker-compose.yml` only runs the dashboard.
+- **Only game ports leave the box**, through playit.gg. The dashboard listens on the host's loopback; RCON exists only on the internal `mclab` network.
+- **Wazuh** reads two kinds of files: each world's server log and the dashboard's audit log. See [wazuh/README.md](wazuh/README.md).
 
 ## Worlds
 
@@ -46,7 +54,7 @@ worlds/
     ...
 ```
 
-`world.json` is the source of truth for a world's settings. A sketch of its shape (final fields TBD while building the dashboard):
+`world.json` is the source of truth for a world's settings. Its shape:
 
 ```json
 {
@@ -82,7 +90,10 @@ Every world container gets the same fixed hardening regardless of `world.json`: 
 - **Secrets live in `.env`**, which is gitignored. `.env.example` documents every variable.
 - **Game access control:** online mode (Microsoft account verification) plus an enforced whitelist, forced on for every world.
 - **Docker socket:** the dashboard mounts `/var/run/docker.sock` to create and control world containers. That is root-equivalent on the host, which is part of why the dashboard stays local and behind a login.
-- _TODO: login (argon2 hashing, sessions, CSRF), login rate limiting/lockout, audit log format._
+- **Login:** one admin account whose password is stored only as an argon2 hash (`dashboard/scripts/hash_password.py`). Sessions are HttpOnly, SameSite=Strict cookies that expire after 8 hours. Every form, including logout and all world actions, carries a CSRF token.
+- **Lockout:** 5 failed logins for a username/IP pair within 15 minutes locks it for 15 minutes (tunable in `.env`).
+- **Audit log:** every login, logout and dashboard action is one JSON line in `logs/audit.jsonl` (format in `dashboard/mcdash/audit.py`), which Wazuh alerts on.
+- **Deleting is reversible:** deleting a world needs its name typed in, only works while it's stopped, and moves its folder to `worlds/.deleted/` instead of erasing it.
 
 ## Setup
 
@@ -96,39 +107,69 @@ Every world container gets the same fixed hardening regardless of `world.json`: 
    ```sh
    docker compose up -d --build
    ```
-4. Open http://localhost:5000 on the server box and create a world. To bring in an existing world, copy its folder to `worlds/<name>/data/world` before creating a world with that name.
+4. Open http://localhost:5000 on the server box and create a world. To bring in a world from somewhere else, see [Importing an existing world](#importing-an-existing-world).
 5. Point a playit.gg tunnel at each world's port (`localhost:25565`, `localhost:25566`, ...).
+
+## Importing an existing world
+
+A world from another host (vanilla, Paper, a hosting service, ...) can be moved into a new world here. What carries over is everything inside the world folder: terrain, the nether and end, and per-player data (inventories, positions, advancements and stats, in `playerdata/`, `advancements/` and `stats/`). Whitelist and ops don't come from the old files; add players on the world's page.
+
+1. **Create the world** in the dashboard, say `kingdoms`, and **don't start it yet**.
+2. **Set the version** on its page to the Minecraft version the old server ran, or newer. Opening a world in an older version than it was last saved with can corrupt it.
+3. **Copy the old world folder** to `worlds/kingdoms/data/world`. It's the folder holding `level.dat`; on the old host it may have another name (whatever `level-name` was in its `server.properties`), but here it must be called `world`.
+   - If the old host was Spigot or Paper, it also has `world_nether` and `world_the_end` folders next to it. Copy those to `worlds/kingdoms/data/` too.
+   - If it was vanilla, the nether and end are inside the world folder (`DIM-1`, `DIM1`). Leave them there; Spigot moves them to `world_nether` and `world_the_end` on its first start.
+   - Leave out the old host's `server.properties`, `whitelist.json` and `ops.json`: the dashboard writes those from `world.json`.
+4. **On Linux, give the files to the server's user** (UID 1000 in the itzg image): `sudo chown -R 1000:1000 worlds/kingdoms/data`.
+5. **Whitelist your players**, then **start** the world. The first Spigot start builds the server first, so it takes several minutes; watch the log on the world page.
+6. Join and check, then press **Back up now** so you have a known-good copy.
+
+Player data is keyed by account UUID. Every world here runs in online mode, so players keep their inventories only if the old server was also online mode (the normal case for paid accounts). If it ran in offline mode, each player's `playerdata/<uuid>.dat` was saved under an offline UUID and they'll start fresh.
+
+## Backups
+
+- **Back up now** on a world's page writes `backups/<world>/<world>-<UTC time>.tar.gz`. On a running server it pauses autosave and flushes the world to disk first.
+- **Scheduled:** every running world is backed up every `BACKUP_INTERVAL_HOURS` (default 24, `0` turns it off), counted from its newest backup, so a dashboard restart doesn't reset the clock. Stopped worlds are skipped because their data can't change.
+- **Retention:** after each backup, manual or scheduled, all but the newest `BACKUP_RETENTION` (default 10) backups of that world are deleted. `0` keeps everything.
+- **Restore:** stop the world, move `worlds/<world>/data` aside, then extract the archive into a fresh one: `mkdir worlds/<world>/data && tar -xzf backups/<world>/<file>.tar.gz -C worlds/<world>/data --strip-components=1` (the archive holds a `<world>/` folder with the contents of `data/`).
+
+## Deleting a world
+
+On the world's page, stop it, type its name and press **Delete world**. The container is removed and `worlds/<world>` moves to `worlds/.deleted/<world>-<UTC time>`; backups stay in `backups/<world>`. To undo, move the folder back to `worlds/<world>` (the world shows up again; it gets a fresh container on start). To free the disk space for good, delete the folder under `worlds/.deleted/` by hand.
 
 ## Features
 
-- [ ] Create / delete worlds, each as its own server container
-- [ ] Edit per-world settings (version, memory, difficulty, MOTD, ...)
-- [ ] Start / stop / restart each world (Docker SDK)
-- [ ] Live server console/log view per world
-- [ ] Online player list and whitelist management per world (RCON)
-- [ ] Manual timestamped world backups
-- [ ] Login with hashed passwords, sessions, CSRF protection
-- [ ] Scheduled backups with retention
-- [ ] Auto-restart on crash
-- [ ] Container CPU/RAM stats
+- [x] Create / delete worlds, each as its own server container
+- [x] Edit per-world settings (version, memory, difficulty, MOTD, ...)
+- [x] Start / stop / restart each world (Docker SDK)
+- [x] Server log view per world (last 200 lines, refresh to update)
+- [x] Online player list and whitelist management per world (RCON)
+- [x] Manual timestamped world backups
+- [x] Login with hashed passwords, sessions, CSRF protection, lockout
+- [x] Scheduled backups with retention
+- [x] Auto-restart on crash (Docker restart policy `unless-stopped`)
+- [x] Container CPU/RAM stats per world
+- [x] Audit log of every dashboard action, with Wazuh rules
+- [ ] Live-updating console (send commands, stream the log)
 
 ## Wazuh integration
 
-_TODO: agent `localfile` config, custom decoders and rules, and screenshots of each rule firing._
+Decoders, rules, the agent's `localfile` config, sample logs and install steps are in [wazuh/README.md](wazuh/README.md). In short, Wazuh alerts on:
 
-Planned rules:
-- Failed dashboard logins and brute-force attempts
-- Non-whitelisted players trying to join (any world)
-- Unexpected server stops and crash loops
-- Admin actions (whitelist changes, server stops)
+- Failed dashboard logins, brute force and lockouts, and any login from off the box
+- Non-whitelisted players trying to join any world, and repeated attempts
+- Crashes, watchdog kills and crash loops
+- Admin actions from the dashboard: starts, stops, whitelist and settings changes, backups, world creation and deletion
 
 ## Repository layout
 
 ```
 docker-compose.yml   Dashboard service and the mclab network
 .env.example         Dashboard config and defaults for new worlds, no real values
-dashboard/           Flask app (placeholder for now)
-worlds/              One directory per world (gitignored, created by the dashboard)
+dashboard/           Flask app (mcdash/) and its tests
+wazuh/               Wazuh decoders, rules, agent config and sample logs
+worlds/              One directory per world (gitignored, created by the dashboard);
+                     deleted worlds go to worlds/.deleted/
 backups/             World backups (gitignored)
 logs/                Dashboard audit log (gitignored)
 ```

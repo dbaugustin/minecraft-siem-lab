@@ -35,8 +35,9 @@
     <label>Name <input name="name" required maxlength="32" pattern="[a-z0-9][a-z0-9_\-]*" placeholder="survival"></label>
     <button type="submit">Create</button>
   </form>
-  <p class="muted">Lowercase letters, digits, - and _. To import an existing world, copy it to
-  <code>worlds/&lt;name&gt;/data/world</code> first, then create a world with that name.
+  <p class="muted">Lowercase letters, digits, - and _. To import an existing world, create it here
+  without starting it, then copy the old world folder to <code>worlds/&lt;name&gt;/data/world</code>
+  (full steps under "Importing an existing world" in the README).
   The new world gets the next free port from {{ config.MC_BASE_PORT }} up and the defaults from <code>.env</code>; change them on its page.</p>
 </section>
 {% endblock %}

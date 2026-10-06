@@ -125,6 +125,15 @@
     <group>admin_action,</group>
   </rule>
 
+  <!-- Retention (BACKUP_RETENTION) deleted an old backup. Scheduled backups
+       and their pruning are logged with user "scheduler". -->
+  <rule id="100125" level="3">
+    <if_sid>100100</if_sid>
+    <field name="event">^backup_pruned$</field>
+    <description>Minecraft dashboard: old backup $(target) of world $(world) deleted by retention</description>
+    <group>admin_action,</group>
+  </rule>
+
   <rule id="100115" level="7">
     <if_sid>100100</if_sid>
     <field name="event">^whitelist_add$</field>
@@ -151,6 +160,15 @@
     <if_sid>100100</if_sid>
     <field name="event">^world_created$</field>
     <description>Minecraft dashboard: $(user) created world $(world) on port $(port)</description>
+    <group>admin_action,</group>
+  </rule>
+
+  <!-- Destructive: the world's container is removed and its folder moved to
+       worlds/.deleted/ ($(target) is the folder name there). -->
+  <rule id="100119" level="10">
+    <if_sid>100100</if_sid>
+    <field name="event">^world_deleted$</field>
+    <description>Minecraft dashboard: $(user) DELETED world $(world) (moved to worlds/.deleted/$(target))</description>
     <group>admin_action,</group>
   </rule>
 
