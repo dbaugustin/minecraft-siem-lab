@@ -128,7 +128,7 @@ Player data is keyed by account UUID. Every world here runs in online mode, so p
 
 ## Backups
 
-- **Back up now** on a world's page writes `backups/<world>/<world>-<UTC time>.tar.gz`. On a running server it pauses autosave and flushes the world to disk first.
+- **Back up now** on a world's page writes `backups/<world>/<world>-<UTC time>.tar.gz`. `backups/` is the folder of that name in your clone of this repo (it ships empty); the archives in it stay on your machine and are never committed, since they're gitignored. On a running server it pauses autosave and flushes the world to disk first.
 - **Scheduled:** every running world is backed up every `BACKUP_INTERVAL_HOURS` (default 24, `0` turns it off), counted from its newest backup, so a dashboard restart doesn't reset the clock. Stopped worlds are skipped because their data can't change.
 - **Retention:** after each backup, manual or scheduled, all but the newest `BACKUP_RETENTION` (default 10) backups of that world are deleted. `0` keeps everything.
 - **Restore:** stop the world, move `worlds/<world>/data` aside, then extract the archive into a fresh one: `mkdir worlds/<world>/data && tar -xzf backups/<world>/<file>.tar.gz -C worlds/<world>/data --strip-components=1` (the archive holds a `<world>/` folder with the contents of `data/`).

@@ -3,8 +3,10 @@
 
 # Runtime data written by the containers
 worlds/
-backups/
 logs/
+# The folder ships with the repo so a fresh clone has it; its archives don't.
+backups/*
+!backups/.gitkeep
 
 # Python
 __pycache__/
