@@ -210,8 +210,15 @@ class WorldService:
     # ---- Log ----
 
     def log_tail(self, name, lines=200):
-        """Last `lines` lines of the world's latest.log, or [] if none yet."""
-        path = os.path.join(self.store.data_dir(name), "logs", "latest.log")
+        """Last `lines` lines of the world's latest.log, or [] if none yet.
+
+        Before a Spigot world's first start finishes, there is no latest.log
+        yet, only the BuildTools output, so show that instead.
+        """
+        data = self.store.data_dir(name)
+        path = os.path.join(data, "logs", "latest.log")
+        if not os.path.isfile(path):
+            path = os.path.join(data, "spigot_build.log")
         if not os.path.isfile(path):
             return []
         with open(path, encoding="utf-8", errors="replace") as f:
