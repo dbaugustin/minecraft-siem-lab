@@ -6,6 +6,14 @@
   Status: <span class="status {{ status | replace(' ', '-') }}">{{ status }}</span>
   · port {{ world.port }} · {{ world.type }} {{ world.version }} · {{ world.memory }}
 </p>
+{% if stats %}
+<p class="stats">
+  CPU {{ stats.cpu_percent }}%
+  · RAM {{ (stats.memory_bytes / 1073741824) | round(2) }} GB
+  {%- if stats.memory_limit_bytes %} of {{ (stats.memory_limit_bytes / 1073741824) | round(1) }} GB{% endif %}
+  <span class="muted">(Java heap is set to {{ world.memory }}; the JVM uses some memory on top of that. CPU 100% = one core.)</span>
+</p>
+{% endif %}
 <p>
   {% for action in ['start', 'stop', 'restart'] %}
   <form class="inline" method="post" action="{{ url_for('main.lifecycle', name=world.name, action=action) }}">

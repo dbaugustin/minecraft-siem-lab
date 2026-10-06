@@ -86,6 +86,21 @@ class WorldContainers:
             return "unknown"
         return container.status if container is not None else "not created"
 
+    def stats(self, world_name):
+        """CPU and memory use of a running world's container, or None.
+
+        Returns {"cpu_percent", "memory_bytes", "memory_limit_bytes"}. The
+        Docker API takes about a second to answer, since it samples CPU twice.
+        """
+        try:
+            container = self.get(world_name)
+            if container is None or container.status != "running":
+                return None
+            raw = container.stats(stream=False)
+        except (ContainerError, DockerException):
+            return None
+        return parse_stats(raw)
+
     def rcon_host(self, world_name):
         # Docker's embedded DNS resolves container names on a user network.
         return container_name(world_name), RCON_PORT
@@ -190,6 +205,34 @@ class WorldContainers:
             except DockerException as e:
                 raise ContainerError(f"Recreated, but could not start: {e}") from e
         return was_running
+
+
+def parse_stats(raw):
+    """Turn one Docker stats sample into CPU % and memory, the way `docker stats` does.
+
+    CPU % is relative to one core, so a busy server on a 4-core box can show
+    up to 400%. Memory excludes the page cache (inactive_file on cgroup v2,
+    total_inactive_file on v1), which the kernel can drop at any time.
+    """
+    try:
+        cpu, pre = raw["cpu_stats"], raw["precpu_stats"]
+        cpu_delta = cpu["cpu_usage"]["total_usage"] - pre.get("cpu_usage", {}).get("total_usage", 0)
+        system_delta = cpu.get("system_cpu_usage", 0) - pre.get("system_cpu_usage", 0)
+        cores = cpu.get("online_cpus") or len(cpu["cpu_usage"].get("percpu_usage") or []) or 1
+        cpu_percent = cpu_delta / system_delta * cores * 100 if system_delta > 0 and cpu_delta > 0 else 0.0
+
+        mem = raw["memory_stats"]
+        extra = mem.get("stats", {})
+        cache = extra.get("inactive_file", extra.get("total_inactive_file", 0))
+        used = max(mem["usage"] - cache, 0)
+        return {
+            "cpu_percent": round(cpu_percent, 1),
+            "memory_bytes": used,
+            "memory_limit_bytes": mem.get("limit"),
+        }
+    except (KeyError, TypeError):
+        # Partial sample, e.g. the container stopped mid-request.
+        return None
 
 
 def default_client_factory():

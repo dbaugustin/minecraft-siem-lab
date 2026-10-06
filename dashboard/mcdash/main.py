@@ -92,6 +92,7 @@ def world(name):
         "world.html",
         world=world,
         status=svc.containers.status(name),
+        stats=svc.containers.stats(name),
         players=svc.online_players(world),
         backups=svc.list_backups(name),
         log_lines=svc.log_tail(name),
