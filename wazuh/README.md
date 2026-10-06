@@ -96,6 +96,27 @@ The agent on the server box ships the two log files. Copy the blocks from
 `agent/localfile.conf` into `/var/ossec/etc/ossec.conf` on that box, change
 the `/opt/minecraft-siem-lab` prefix to where the repo is checked out, and restart the agent (`sudo systemctl restart wazuh-agent`).
 
+**Agent in a container** (Docker Desktop on Windows or macOS, or any box where
+you'd rather not install the agent): `agent/docker/` builds an agent image
+that already has the `localfile` blocks. Mount the repo's `logs/` and
+`worlds/` at `/opt/minecraft-siem-lab` and join the manager's network:
+
+```bash
+docker build -t mc-lab-wazuh-agent -f wazuh/agent/docker/Dockerfile wazuh/agent
+docker run -d --name mc-lab-wazuh-agent --hostname mc-lab-box --restart unless-stopped   --network single-node_default   -v "$PWD/logs:/opt/minecraft-siem-lab/logs:ro"   -v "$PWD/worlds:/opt/minecraft-siem-lab/worlds:ro"   mc-lab-wazuh-agent
+```
+
+It registers with `wazuh.manager` on first start and shows up as `mc-lab-box`.
+
+**Windows (Git Bash):** Git Bash rewrites arguments that start with `/` into
+Windows paths, which breaks the `docker exec $MGR /var/ossec/...` commands
+above. Run `export MSYS_NO_PATHCONV=1` first.
+
+**Ports:** wazuh-docker publishes the manager, indexer and dashboard ports on
+every interface. On a home PC, prefix them with `127.0.0.1:` in its
+`docker-compose.yml`; the agent container reaches the manager over the
+Docker network, so nothing needs to be published for it.
+
 ## Test with wazuh-logtest
 
 ```bash
