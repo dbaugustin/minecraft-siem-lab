@@ -51,7 +51,7 @@ worlds/
 ```json
 {
   "name": "survival",
-  "type": "VANILLA",
+  "type": "SPIGOT",
   "version": "1.21.1",
   "memory": "2G",
   "port": 25565,
@@ -72,6 +72,8 @@ worlds/
 Every world container gets the same fixed hardening regardless of `world.json`: online mode on, whitelist enforced, RCON enabled with a per-world random password and its port never published, joined to the `mclab` network, and labelled `mc-siem-lab.world=<name>` so the dashboard only ever touches its own containers.
 
 **Ports:** each world needs its own host game port (25565, 25566, ...) and its own playit.gg tunnel entry pointing at it.
+
+**Server software:** new worlds default to Spigot (`MC_DEFAULT_TYPE` in `.env`); the type stays editable per world. Spigot publishes no ready-made jar, so the dashboard sets itzg's `BUILD_FROM_SOURCE=TRUE` and the container builds Spigot with BuildTools on its first start and after a version change. That takes several minutes and needs network access to hub.spigotmc.org; the world page shows the build output (`data/spigot_build.log`) until the server's own log appears. The built jar is kept in `data/` and reused on later starts. Right after a new Minecraft release, `LATEST` can fail until Spigot catches up; pin a version like `1.21.1` if that happens.
 
 ## Security design
 

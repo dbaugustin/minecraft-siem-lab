@@ -51,7 +51,7 @@ class Config:
     MC_GAME_BIND_IP = os.environ.get("MC_GAME_BIND_IP", "127.0.0.1")
 
     # Defaults for new worlds; each world can change them afterwards.
-    MC_DEFAULT_TYPE = os.environ.get("MC_DEFAULT_TYPE", "VANILLA")
+    MC_DEFAULT_TYPE = os.environ.get("MC_DEFAULT_TYPE", "SPIGOT")
     MC_DEFAULT_VERSION = os.environ.get("MC_DEFAULT_VERSION", "LATEST")
     MC_DEFAULT_MEMORY = os.environ.get("MC_DEFAULT_MEMORY", "2G")
     MC_BASE_PORT = int(os.environ.get("MC_BASE_PORT", "25565"))

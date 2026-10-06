@@ -66,6 +66,7 @@ def test_create_world(logged_in, app, audit_path, tmp_path):
     assert resp.status_code == 302
     assert resp.headers["Location"] == "/worlds/survival"
     assert (tmp_path / "worlds" / "survival" / "data").is_dir()
+    assert world_json(app)["type"] == "SPIGOT"  # the default server software
     event = last_event(audit_path)
     assert event["event"] == "world_created"
     assert event["world"] == "survival"
@@ -386,3 +387,16 @@ def test_log_tail_is_escaped(logged_in, tmp_path):
     assert "line 299" in page and "line 50\n" not in page
     assert "<script>alert(1)" not in page
     assert "&lt;script&gt;" in page
+
+
+def test_log_tail_shows_spigot_build_before_first_start(logged_in, tmp_path):
+    create(logged_in)
+    data = tmp_path / "worlds" / "survival" / "data"
+    data.joinpath("spigot_build.log").write_text("Downloading BuildTools\n")
+    page = logged_in.get("/worlds/survival").get_data(as_text=True)
+    assert "Downloading BuildTools" in page
+    # Once the server has its own log, that wins.
+    data.joinpath("logs").mkdir()
+    data.joinpath("logs", "latest.log").write_text("Done (3.1s)!\n")
+    page = logged_in.get("/worlds/survival").get_data(as_text=True)
+    assert "Done (3.1s)!" in page and "Downloading BuildTools" not in page

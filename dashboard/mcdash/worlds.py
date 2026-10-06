@@ -22,7 +22,7 @@ PLAYER_RE = re.compile(r"^[A-Za-z0-9_]{3,16}$")
 VERSION_RE = re.compile(r"^(LATEST|SNAPSHOT|\d+\.\d+(\.\d+)?)$")
 MEMORY_RE = re.compile(r"^(\d+)([MG])$")
 
-SERVER_TYPES = ("VANILLA", "PAPER", "FABRIC", "FORGE", "PURPUR")
+SERVER_TYPES = ("SPIGOT", "VANILLA", "PAPER", "FABRIC", "FORGE", "PURPUR")
 DIFFICULTIES = ("peaceful", "easy", "normal", "hard")
 GAMEMODES = ("survival", "creative", "adventure", "spectator")
 
@@ -257,6 +257,12 @@ def container_env(world):
         "VERSION": world["version"],
         "MEMORY": world["memory"],
     }
+    if world["type"] == "SPIGOT":
+        # Spigot has no official jar downloads and itzg's default source
+        # (getbukkit.org) no longer allows automated downloads, so build it
+        # with BuildTools. That takes several minutes on the first start and
+        # after a version change; the jar is kept in /data and reused.
+        env["BUILD_FROM_SOURCE"] = "TRUE"
     # itzg ignores an empty list, so only set these when there are players.
     # (Removing the last player is handled in whitelist.json directly.)
     if world["whitelist"]:

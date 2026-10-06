@@ -127,3 +127,12 @@ def test_container_env_forces_hardening(store):
     assert env["DIFFICULTY"] == "normal"
     assert env["PVP"] == "true"
     assert "OPS" not in env  # empty list is left out
+
+
+def test_spigot_builds_from_source(store):
+    world = store.create("survival", dict(DEFAULTS, type="SPIGOT"))
+    env = container_env(world)
+    assert env["TYPE"] == "SPIGOT"
+    assert env["BUILD_FROM_SOURCE"] == "TRUE"
+    # Other types download a jar as usual.
+    assert "BUILD_FROM_SOURCE" not in container_env(dict(world, type="PAPER"))
