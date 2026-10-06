@@ -10,4 +10,6 @@ EXPOSE 5000
 # is controlled by the compose port mapping, which binds to 127.0.0.1 only.
 # One worker process (with threads) because login lockout state is kept in
 # memory: with several workers each would count failures separately.
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "app:app"]
+# --timeout 300: stopping a world waits up to 60s for it to save, and the first
+# start of a world may pull the itzg image, both well past gunicorn's 30s default.
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "300", "app:app"]

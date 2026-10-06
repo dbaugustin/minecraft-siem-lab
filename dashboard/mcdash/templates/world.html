@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}{{ world.name }} · Minecraft Dashboard{% endblock %}
+{% block content %}
+<h1>{{ world.name }}</h1>
+<p>
+  Status: <span class="status {{ status | replace(' ', '-') }}">{{ status }}</span>
+  · port {{ world.port }} · {{ world.type }} {{ world.version }} · {{ world.memory }}
+</p>
+<p>
+  {% for action in ['start', 'stop', 'restart'] %}
+  <form class="inline" method="post" action="{{ url_for('main.lifecycle', name=world.name, action=action) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit"
+      {% if (action == 'start' and status == 'running') or (action != 'start' and status != 'running') %}disabled{% endif %}>
+      {{ action | capitalize }}</button>
+  </form>
+  {% endfor %}
+</p>
+
+<section>
+  <h2>Players</h2>
+  {% if players is none %}
+    <p class="muted">Online players show up while the server is running.</p>
+  {% elif players %}
+    <p>Online: {{ players | join(', ') }}</p>
+  {% else %}
+    <p>Nobody online.</p>
+  {% endif %}
+
+  <h3>Whitelist</h3>
+  {% if world.whitelist %}
+  <ul>
+    {% for player in world.whitelist %}
+    <li>{{ player }}
+      <form class="inline" method="post" action="{{ url_for('main.whitelist_remove', name=world.name) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="player" value="{{ player }}">
+        <button type="submit">Remove</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Nobody is whitelisted, so nobody can join.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('main.whitelist_add', name=world.name) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Player <input name="player" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]+"></label>
+    <button type="submit">Add to whitelist</button>
+  </form>
+</section>
+
+<section>
+  <h2>Settings</h2>
+  <p class="muted">Saving rebuilds the server container with the new settings. A running server restarts; the world itself is kept.</p>
+  <form method="post" action="{{ url_for('main.settings', name=world.name) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="grid">
+      <label>Server type
+        <select name="type">{% for t in server_types %}<option {% if t == world.type %}selected{% endif %}>{{ t }}</option>{% endfor %}</select>
+      </label>
+      <label>Version <input name="version" value="{{ world.version }}" required></label>
+      <label>Memory <input name="memory" value="{{ world.memory }}" required></label>
+      <label>Port <input name="port" type="number" value="{{ world.port }}" required></label>
+      <label>Difficulty
+        <select name="difficulty">{% for d in difficulties %}<option {% if d == world.properties.difficulty %}selected{% endif %}>{{ d }}</option>{% endfor %}</select>
+      </label>
+      <label>Game mode
+        <select name="gamemode">{% for g in gamemodes %}<option {% if g == world.properties.gamemode %}selected{% endif %}>{{ g }}</option>{% endfor %}</select>
+      </label>
+      <label>Max players <input name="max-players" type="number" value="{{ world.properties['max-players'] }}"></label>
+      <label>View distance <input name="view-distance" type="number" value="{{ world.properties['view-distance'] }}"></label>
+      <label>Spawn protection <input name="spawn-protection" type="number" value="{{ world.properties['spawn-protection'] }}"></label>
+      <label>MOTD <input name="motd" value="{{ world.properties.motd }}" maxlength="100"></label>
+      <label class="check"><input type="checkbox" name="pvp" {% if world.properties.pvp %}checked{% endif %}> PvP</label>
+      <label class="check"><input type="checkbox" name="hardcore" {% if world.properties.hardcore %}checked{% endif %}> Hardcore</label>
+    </div>
+    <p><button type="submit">Save settings</button></p>
+  </form>
+  <p class="muted">Always on, whatever these say: online mode, enforced whitelist, RCON on the internal network only.</p>
+</section>
+
+<section>
+  <h2>Backups</h2>
+  <form method="post" action="{{ url_for('main.backup', name=world.name) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit">Back up now</button>
+  </form>
+  {% if backups %}
+  <ul>
+    {% for b in backups %}<li>{{ b.file }} <span class="muted">({{ (b.size / 1048576) | round(1) }} MB)</span></li>{% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">No backups yet.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Server log</h2>
+  <p class="muted">Last {{ log_lines | length }} lines of <code>latest.log</code>. <a href="{{ url_for('main.world', name=world.name) }}">Refresh</a></p>
+  {% if log_lines %}<pre class="log">{{ log_lines | join('\n') }}</pre>{% endif %}
+</section>
+{% endblock %}
