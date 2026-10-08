@@ -172,6 +172,73 @@
     <group>admin_action,</group>
   </rule>
 
+  <!-- ===== Operators, console and world uploads ===== -->
+
+  <!-- Operator is full in-game admin: worth a look every time. -->
+  <rule id="100126" level="8">
+    <if_sid>100100</if_sid>
+    <field name="event">^op_granted$</field>
+    <description>Minecraft dashboard: $(user) made $(target) an operator of world $(world)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <group>admin_action,</group>
+  </rule>
+
+  <rule id="100127" level="5">
+    <if_sid>100100</if_sid>
+    <field name="event">^op_revoked$</field>
+    <description>Minecraft dashboard: $(user) removed operator from $(target) on world $(world)</description>
+    <group>admin_action,</group>
+  </rule>
+
+  <!-- Any command sent through the dashboard's console; $(target) is the command. -->
+  <rule id="100128" level="5">
+    <if_sid>100100</if_sid>
+    <field name="event">^console_command$</field>
+    <description>Minecraft dashboard: $(user) ran console command on world $(world): $(target)</description>
+    <group>admin_action,</group>
+  </rule>
+
+  <!-- Console commands that change who can get in or who is in charge. -->
+  <rule id="100129" level="8">
+    <if_sid>100128</if_sid>
+    <field name="target" type="pcre2">(?i)^(?:op|deop|whitelist|ban|ban-ip|pardon|pardon-ip)(?:\s|$)</field>
+    <description>Minecraft dashboard: $(user) changed access on world $(world) from the console: $(target)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <group>admin_action,</group>
+  </rule>
+
+  <!-- The world's files were replaced with an uploaded .zip. The old world
+       was moved to worlds/.deleted/ ($(moved_aside)). -->
+  <rule id="100130" level="8">
+    <if_sid>100100</if_sid>
+    <field name="event">^world_uploaded$</field>
+    <description>Minecraft dashboard: $(user) replaced world $(world) with upload $(target)</description>
+    <group>admin_action,</group>
+  </rule>
+
+  <!-- A rejected upload: wrong file, too large, or a zip trying to write
+       outside the world folder (zip slip) or unpack far too much (zip bomb). -->
+  <rule id="100131" level="7">
+    <if_sid>100100</if_sid>
+    <field name="event">^world_upload_rejected$</field>
+    <description>Minecraft dashboard: world upload to $(world) rejected ($(reason))</description>
+    <group>admin_action,</group>
+  </rule>
+
+  <rule id="100132" level="10">
+    <if_sid>100131</if_sid>
+    <field name="reason" type="pcre2">outside its folder|absolute path|symlink</field>
+    <description>Minecraft dashboard: upload to world $(world) tried to write outside the world folder ($(target))</description>
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+    <group>web_attack,</group>
+  </rule>
+
   <!-- ===== Access model check ===== -->
 
   <!--

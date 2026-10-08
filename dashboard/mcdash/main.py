@@ -24,6 +24,7 @@ from .audit import audit
 from .auth import login_required
 from .rcon import RconError
 from .service import ACTION_ERRORS, SettingsSavedError
+from .upload import UploadError
 from .worlds import (
     DIFFICULTIES,
     GAMEMODES,
@@ -96,6 +97,8 @@ def world(name):
         players=svc.online_players(world),
         backups=svc.list_backups(name),
         log_lines=svc.log_tail(name),
+        console=svc.console_history(name),
+        has_world=os.path.isdir(os.path.join(svc.store.data_dir(name), "world")),
         server_types=SERVER_TYPES,
         difficulties=DIFFICULTIES,
         gamemodes=GAMEMODES,
@@ -196,6 +199,81 @@ def whitelist_remove(name):
         return back_to(name)
     audit("whitelist_remove", user=session["user"], world=name, target=removed)
     flash(f"Removed {removed} from the whitelist.", "info")
+    return back_to(name)
+
+
+@bp.route("/worlds/<name>/ops/add", methods=["POST"])
+@login_required
+def op_add(name):
+    load_or_404(name)
+    player = request.form.get("player", "").strip()
+    try:
+        player = service().op_add(name, player)
+    except ACTION_ERRORS as e:
+        flash(error_message(e), "error")
+        return back_to(name)
+    audit("op_granted", user=session["user"], world=name, target=player)
+    flash(f"{player} is now an operator.", "info")
+    return back_to(name)
+
+
+@bp.route("/worlds/<name>/ops/remove", methods=["POST"])
+@login_required
+def op_remove(name):
+    load_or_404(name)
+    player = request.form.get("player", "").strip()
+    try:
+        player = service().op_remove(name, player)
+    except ACTION_ERRORS as e:
+        flash(error_message(e), "error")
+        return back_to(name)
+    audit("op_revoked", user=session["user"], world=name, target=player)
+    flash(f"{player} is no longer an operator.", "info")
+    return back_to(name)
+
+
+@bp.route("/worlds/<name>/console", methods=["POST"])
+@login_required
+def console(name):
+    load_or_404(name)
+    try:
+        command, _ = service().console(name, request.form.get("command", ""))
+    except ACTION_ERRORS as e:
+        flash(error_message(e), "error")
+        return back_to(name)
+    # The command goes in the audit trail; its output stays on the page.
+    audit("console_command", user=session["user"], world=name, target=command)
+    return redirect(url_for("main.world", name=name, _anchor="console"))
+
+
+@bp.route("/worlds/<name>/upload", methods=["POST"])
+@login_required
+def upload(name):
+    load_or_404(name)
+    file = request.files.get("world")
+    filename = (file.filename or "")[:255] if file else ""
+    if not filename.lower().endswith(".zip"):
+        audit("world_upload_rejected", user=session["user"], world=name,
+              target=filename, reason="not a .zip")
+        flash("Choose a .zip of the world folder to upload.", "error")
+        return back_to(name)
+    max_bytes = current_app.config["WORLD_UPLOAD_MAX_MB"] * 1024 * 1024 * 4
+    try:
+        size, moved = service().upload_world(name, file.stream, max_bytes)
+    except UploadError as e:
+        audit("world_upload_rejected", user=session["user"], world=name,
+              target=filename, reason=str(e))
+        flash(str(e), "error")
+        return back_to(name)
+    except ACTION_ERRORS as e:
+        flash(f"Could not upload: {error_message(e)}", "error")
+        return back_to(name)
+    audit("world_uploaded", user=session["user"], world=name, target=filename,
+          unpacked_bytes=size, moved_aside=moved)
+    message = f"Uploaded {filename} ({size / 1048576:.0f} MB unpacked)."
+    if moved:
+        message += " The previous world was moved to worlds/.deleted/ (" + ", ".join(moved) + ")."
+    flash(message + " Start the server to play it.", "info")
     return back_to(name)
 
 

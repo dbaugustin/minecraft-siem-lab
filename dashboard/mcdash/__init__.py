@@ -1,6 +1,6 @@
 """Flask application factory for the Minecraft management dashboard."""
 
-from flask import Flask, render_template
+from flask import Flask, render_template, request, session
 from flask_wtf.csrf import CSRFError, CSRFProtect
 
 from .audit import audit
@@ -36,6 +36,9 @@ def create_app(config_overrides=None):
             "FLASK_SECRET_KEY is a placeholder or too short. Generate one with: "
             'python3 -c "import secrets; print(secrets.token_hex(32))"'
         )
+
+    # Flask answers 413 to any request body bigger than this, before reading it.
+    app.config["MAX_CONTENT_LENGTH"] = app.config["WORLD_UPLOAD_MAX_MB"] * 1024 * 1024
 
     # Every POST/PUT/PATCH/DELETE needs a valid CSRF token, including the
     # world-control routes, not just the login form.
@@ -75,6 +78,16 @@ def create_app(config_overrides=None):
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(main.bp)
+
+    @app.errorhandler(413)
+    def handle_too_large(e):
+        world = (request.view_args or {}).get("name")
+        audit("world_upload_rejected", user=session.get("user"), world=world, reason="too_large")
+        return render_template(
+            "error.html",
+            message=f"That upload is over the {app.config['WORLD_UPLOAD_MAX_MB']} MB limit "
+                    "(WORLD_UPLOAD_MAX_MB in .env).",
+        ), 413
 
     @app.errorhandler(CSRFError)
     def handle_csrf_error(e):

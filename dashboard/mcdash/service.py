@@ -10,6 +10,7 @@ several threads, and two overlapping "recreate" calls would race.
 
 import json
 import os
+import re
 import tarfile
 import threading
 from collections import deque
@@ -18,7 +19,13 @@ from datetime import datetime, timezone
 
 from .containers import ContainerError
 from .rcon import RconError
+from .upload import UploadError, import_zip
 from .worlds import WorldError, parse_settings, valid_player
+
+# Minecraft's formatting codes (section sign + one character) show up in
+# command output; they mean nothing in a browser.
+FORMAT_CODE_RE = re.compile("\u00a7.")
+CONSOLE_HISTORY = 30
 
 
 class WorldBusyError(WorldError):
@@ -41,6 +48,9 @@ class WorldService:
         self.backup_dir = backup_dir
         self._locks = {}
         self._locks_guard = threading.Lock()
+        # Recent console commands and their output, per world. In memory
+        # only: gunicorn runs a single worker, and losing it on restart is fine.
+        self._console = {}
 
     @contextmanager
     def locked(self, name):
@@ -162,13 +172,56 @@ class WorldService:
             else:
                 # itzg skips an empty WHITELIST variable, so removing the last
                 # player wouldn't sync. Edit whitelist.json directly instead.
-                self._drop_from_whitelist_file(name, match)
+                self._drop_from_json_list(name, "whitelist.json", match)
             world["whitelist"] = [p for p in world["whitelist"] if p != match]
+            # An op who can't join anymore shouldn't stay an op.
+            if any(p.lower() == match.lower() for p in world["ops"]):
+                self._deop(world, match)
             self.store.save(world)
             return match
 
-    def _drop_from_whitelist_file(self, name, player):
-        path = os.path.join(self.store.data_dir(name), "whitelist.json")
+    # ---- Operators ----
+
+    def op_add(self, name, player):
+        with self.locked(name):
+            world = self.store.load(name)
+            match = next((p for p in world["whitelist"] if p.lower() == player.lower()), None)
+            if match is None:
+                raise WorldError(f"{player} is not on the whitelist. Whitelist them first.")
+            if any(p.lower() == match.lower() for p in world["ops"]):
+                raise WorldError(f"{match} is already an operator.")
+            if self.is_running(name):
+                with self.rcon(world) as rcon:
+                    rcon.command(f"op {match}")
+            # Stopped: lands in ops.json on next start (EXISTING_OPS_FILE=SYNCHRONIZE).
+            world["ops"] = world["ops"] + [match]
+            self.store.save(world)
+            return match
+
+    def op_remove(self, name, player):
+        with self.locked(name):
+            world = self.store.load(name)
+            match = self._deop(world, player)
+            self.store.save(world)
+            return match
+
+    def _deop(self, world, player):
+        """Take operator away from player in `world` (not saved). Returns their name."""
+        match = next((p for p in world["ops"] if p.lower() == player.lower()), None)
+        if match is None:
+            raise WorldError(f"{player} is not an operator.")
+        if self.is_running(world["name"]):
+            with self.rcon(world) as rcon:
+                rcon.command(f"deop {match}")
+        else:
+            # Same as the whitelist: itzg skips an empty OPS variable, so
+            # removing the last op wouldn't sync. Edit ops.json directly.
+            self._drop_from_json_list(world["name"], "ops.json", match)
+        world["ops"] = [p for p in world["ops"] if p != match]
+        return match
+
+    def _drop_from_json_list(self, name, filename, player):
+        path = os.path.join(self.store.data_dir(name), filename)
         if not os.path.isfile(path):
             return
         with open(path, encoding="utf-8") as f:
@@ -176,6 +229,46 @@ class WorldService:
         kept = [e for e in entries if e.get("name", "").lower() != player.lower()]
         with open(path, "w", encoding="utf-8") as f:
             json.dump(kept, f, indent=2)
+
+    # ---- Console ----
+
+    def console(self, name, command):
+        """Run one console command over RCON. Returns its output, cleaned up."""
+        command = command.strip()
+        if command.startswith("/"):
+            command = command[1:]
+        if not command:
+            raise WorldError("Type a command first.")
+        if any(ch in command for ch in "\r\n\x00"):
+            raise WorldError("Commands are one line.")
+        with self.locked(name):
+            world = self.store.load(name)
+            if not self.is_running(name):
+                raise WorldError(f"Start {name} to use the console.")
+            with self.rcon(world) as rcon:
+                output = FORMAT_CODE_RE.sub("", rcon.command(command)).strip()
+        history = self._console.setdefault(name, deque(maxlen=CONSOLE_HISTORY))
+        history.append({"command": command, "output": output})
+        return command, output
+
+    def console_history(self, name):
+        return list(self._console.get(name, ()))
+
+    # ---- Upload ----
+
+    def upload_world(self, name, fileobj, max_bytes):
+        """Import a world from a .zip into worlds/<name>/data. See upload.py.
+
+        The server must be stopped, so it doesn't overwrite the new world
+        with the old one on its next save. Returns (bytes, moved_aside).
+        """
+        with self.locked(name):
+            self.store.load(name)
+            if self.containers.status(name) in ("running", "restarting"):
+                raise WorldError(f"Stop {name} before uploading a world.")
+            stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
+            return import_zip(fileobj, name, self.store.data_dir(name),
+                              self.store.trash_dir(), stamp, max_bytes)
 
     # ---- Backups ----
 
@@ -269,4 +362,4 @@ class WorldService:
             return [line.rstrip("\n") for line in deque(f, maxlen=lines)]
 
 
-ACTION_ERRORS = (WorldError, ContainerError, RconError, OSError)
+ACTION_ERRORS = (WorldError, ContainerError, RconError, UploadError, OSError)

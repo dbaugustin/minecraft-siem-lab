@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-<p>{{ message }}</p>
-<p><a href="{{ url_for('auth.login') }}">Back</a></p>
+<div class="card auth">
+  <p>{{ message }}</p>
+  <p class="hint"><a href="{{ url_for('main.index') }}">Back to the dashboard</a></p>
+</div>
 {% endblock %}
