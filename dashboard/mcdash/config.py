@@ -49,7 +49,10 @@ class Config:
     # Running worlds are backed up automatically this often (0 turns it off).
     BACKUP_INTERVAL_HOURS = float(os.environ.get("BACKUP_INTERVAL_HOURS", "24"))
     MC_NETWORK = os.environ.get("MC_NETWORK", "mclab")
-    MC_IMAGE = os.environ.get("MC_IMAGE", "itzg/minecraft-server:latest")
+    # A JDK tag, not :latest. :latest ships only a JRE, and building Spigot
+    # with BuildTools (BUILD_FROM_SOURCE) needs javac: on a JRE the Maven
+    # step fails with "No compiler is provided in this environment".
+    MC_IMAGE = os.environ.get("MC_IMAGE", "itzg/minecraft-server:java25-jdk")
     # Host address each world's game port is published on. 127.0.0.1 keeps it
     # reachable only through the playit.gg agent running on the same box. Set
     # 0.0.0.0 only if friends should also join directly over the LAN.

@@ -73,10 +73,11 @@
   <order>player, srcip, srcport</order>
 </decoder>
 
-<!-- Admin commands echoed to the log, e.g. [Rcon: Added Steve to the whitelist] -->
+<!-- Admin commands echoed to the log, e.g. [Rcon: Added Steve to the whitelist].
+     Minecraft 26.x prefixes the echo with "System chat: ". -->
 <decoder name="minecraft-fields">
   <parent>minecraft</parent>
-  <regex type="pcre2">\]: \[(\w+): (?:Added|Removed|Made) (\w+) </regex>
+  <regex type="pcre2">\]: (?:System chat: )?\[(\w+): (?:Added|Removed|Made) (\w+) </regex>
   <order>actor, player</order>
 </decoder>
 

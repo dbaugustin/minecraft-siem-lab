@@ -11,6 +11,7 @@
 /opt/minecraft-siem-lab/worlds/survival/data/logs/latest.log: [18:05:00] [Server thread/INFO]: Disconnecting Cracked1 (/127.0.0.1:52100): Failed to verify username!
 /opt/minecraft-siem-lab/worlds/survival/data/logs/latest.log: [18:06:00] [Server thread/INFO]: [Rcon: Added Alex to the whitelist]
 /opt/minecraft-siem-lab/worlds/survival/data/logs/latest.log: [18:06:30] [Server thread/INFO]: [Rcon: Removed Alex from the whitelist]
+/opt/minecraft-siem-lab/worlds/creative/data/logs/latest.log: [18:06:45] [Server thread/INFO]: System chat: [Rcon: Added Steve to the whitelist]
 /opt/minecraft-siem-lab/worlds/survival/data/logs/latest.log: [18:07:00] [Server thread/INFO]: [Rcon: Made Alex a server operator]
 /opt/minecraft-siem-lab/worlds/survival/data/logs/latest.log: [18:07:30] [Server thread/INFO]: [Rcon: Made Alex no longer a server operator]
 /opt/minecraft-siem-lab/worlds/survival/data/logs/latest.log: [18:08:00] [Server thread/WARN]: Can't keep up! Is the server overloaded? Running 5012ms or 100 ticks behind
