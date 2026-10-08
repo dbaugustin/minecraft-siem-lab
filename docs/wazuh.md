@@ -14,12 +14,14 @@ Wazuh needs about 4 GB of RAM on top of your worlds.
 
 ## 1. Start Wazuh's stack
 
-Clone `wazuh-docker` **next to** this repo (not inside it), at the version this repo was tested with:
+Clone `wazuh-docker` **next to** this repo (not inside it), at a current 4.x release. The rules here were written on 4.9.2 and run on 4.14.1:
 
 ```sh
-git clone https://github.com/wazuh/wazuh-docker.git -b v4.9.2
+git clone https://github.com/wazuh/wazuh-docker.git -b v4.14.1
 cd wazuh-docker/single-node
 ```
+
+**Run only one Wazuh stack, and never downgrade.** Every copy of `single-node` uses the same Docker volume names (`single-node_wazuh-indexer-data` and so on), whatever version it is. If you already have Wazuh running in Docker, use that install and skip to step 2. A second, older copy would open the newer copy's data and fail; see [Troubleshooting](#troubleshooting).
 
 **Keep it on your PC only.** By default it listens on every network interface. Open `docker-compose.yml` in `single-node/` and put `127.0.0.1:` in front of each published port, for example `"443:5601"` becomes `"127.0.0.1:443:5601"`. The agent reaches the manager over Docker's own network, so nothing breaks.
 
@@ -37,7 +39,7 @@ docker compose -f generate-indexer-certs.yml run --rm generator
 docker compose up -d
 ```
 
-The first start takes a few minutes. Open **https://localhost**, accept the self-signed certificate warning, and log in with `admin` / `SecretPassword`. That's Wazuh's public default, so [change it](https://documentation.wazuh.com/4.9/deployment-options/docker/wazuh-container.html) if anything else can reach this PC.
+The first start takes a few minutes. Open **https://localhost**, accept the self-signed certificate warning, and log in with `admin` / `SecretPassword`. That's Wazuh's public default, so [change it](https://documentation.wazuh.com/current/deployment-options/docker/wazuh-container.html) if anything else can reach this PC.
 
 The page says **"Wazuh dashboard server is not ready yet"** until the indexer behind it is up. A minute or two is normal. If it stays that way, see [Troubleshooting](#troubleshooting).
 
@@ -53,7 +55,9 @@ docker exec single-node-wazuh.manager-1 chown wazuh:wazuh /var/ossec/etc/decoder
 docker exec single-node-wazuh.manager-1 /var/ossec/bin/wazuh-control restart
 ```
 
-`single-node-wazuh.manager-1` is the manager's default container name; check yours with `docker ps`. The files are kept across restarts. Repeat this step when you pull rule changes.
+`single-node-wazuh.manager-1` is the manager's default container name; check yours with `docker ps`. The files are kept across restarts in the `wazuh_etc` volume. Repeat this step when you pull rule changes.
+
+If your stack's `docker-compose.yml` mounts a folder from your PC over `/var/ossec/etc/rules` or `/var/ossec/etc/decoders` (look under `wazuh.manager:` → `volumes:`), whatever you `docker cp` there is hidden by that folder. Put the rule and decoder files in the mounted folders on your PC instead, then restart the manager.
 
 ## 3. Run the agent
 
@@ -87,13 +91,14 @@ The agent container restarts by itself once Docker is up, and reconnects when th
 
 ## Troubleshooting
 
-**"Wazuh dashboard server is not ready yet" for more than five minutes.** The Wazuh dashboard can't reach the indexer. Look at the indexer's log first:
+**"Wazuh dashboard server is not ready yet" for more than five minutes.** The Wazuh dashboard can't reach the indexer, usually because the indexer is crash-looping. Look at the indexer's log first:
 
 ```sh
 docker logs --tail 50 single-node-wazuh.indexer-1
 docker logs --tail 50 single-node-wazuh.dashboard-1
 ```
 
+- `Could not load codec 'Lucene912'` (or another `Lucene...` codec): the indexer is an older version than the data in its volume. This happens when two `wazuh-docker` copies of different versions were both started, since they share volume names, or after checking out an older version. Stop the older copy (`docker compose down` in its folder) and run only the newer one. Don't delete the volumes unless you want to lose your alert history.
 - `max virtual memory areas vm.max_map_count [65530] is too low` (Linux): run the `sysctl` commands from step 1, then `docker compose up -d`.
 - The indexer exited or keeps restarting with out-of-memory errors: give Docker more memory (Docker Desktop: *Settings > Resources*, or `.wslconfig` with the WSL 2 backend) or stop a world.
 - Certificate errors: the certificates from step 1 weren't generated, or were generated in a different folder. Run the generator again in `single-node/`, then `docker compose up -d`.
