@@ -77,6 +77,17 @@ applied it.
 
 ## Install on the manager (Wazuh in Docker)
 
+Tested with wazuh-docker 4.14.1 and 4.9.2. Start the stack from its
+`single-node` folder with `docker compose up -d`; the dashboard at
+https://localhost takes a few minutes to come up after the indexer.
+
+**Only ever run one wazuh-docker version on a box.** Every checkout's
+`single-node` folder gives the same Compose project name, so a second
+checkout reuses the first one's volumes. An older indexer can't read data
+written by a newer one: it crashes with `Could not load codec 'Lucene912'`
+and the dashboard stays on "Wazuh dashboard server is not ready yet". Use
+the checkout that matches your data, or upgrade it, never downgrade.
+
 From the repo root on the server box, with the default single-node
 wazuh-docker container name (check yours with `docker ps`):
 
@@ -130,7 +141,7 @@ wazuh/test/run-logtest.sh single-node-wazuh.manager-1
 ```
 
 Every sample line should show the rule it was written for; a line printed as
-`NO RULE` means nothing matched. Output from Wazuh 4.9.2:
+`NO RULE` means nothing matched. Output (the same on Wazuh 4.9.2 and 4.14.1):
 
 ```
 === dashboard-audit.log ===
