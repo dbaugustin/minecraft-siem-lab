@@ -37,6 +37,12 @@ wazuh/
 | 100117 | 5 | World settings changed |
 | 100118 | 7 | New world created (a new server container with its own game port) |
 | 100119 | 10 | World deleted from the dashboard (container removed, folder moved to `worlds/.deleted/`) |
+| 100126 / 100127 | 8 / 5 | Player made an operator / operator removed |
+| 100128 | 5 | Command run from the dashboard's server console |
+| 100129 | 8 | Console command that changes access (`op`, `deop`, `whitelist`, `ban`, `pardon`) |
+| 100130 | 8 | World replaced with an uploaded .zip (old world moved to `worlds/.deleted/`) |
+| 100131 | 7 | World upload rejected (not a zip, no world in it, too large) |
+| 100132 | 10 | World upload tried to write outside the world folder (zip slip, absolute path, symlink) |
 | 100120 | 12 | A login from an address that isn't the server box itself |
 
 `login_invalid_form` events are decoded but don't alert (level 0).
@@ -180,7 +186,9 @@ wazuh-logtest proves the rules parse; these prove the whole pipeline
 | 100103, 100104 | Enter a wrong password at http://localhost:5000/login five times |
 | 100210, 100211 | Remove a friend from the whitelist and have them try to join 5 times (or use a second account) |
 | 100111, 100115 | Stop a world / add someone to its whitelist from the dashboard |
-| 100242 | `op <name>` through the dashboard console |
+| 100126, 100242 | **Make op** on a player in the dashboard |
+| 100128, 100129, 100242 | `op <name>` in the dashboard's console |
+| 100130 | Upload a world .zip on a stopped world's page |
 | 100230, 100235 | There is no safe way to crash the server on demand. Append a crash line to the live log instead, which still goes through the agent: `echo "[$(date +%T)] [Server thread/ERROR]: This crash report has been saved to: /data/crash-reports/test.txt" >> worlds/survival/data/logs/latest.log` (twice for 100235) |
 | 100234 | Restart one world 3 times within 10 minutes |
 | 100120 | Only fires if the dashboard is reachable off-box, which it shouldn't be. Test it with wazuh-logtest instead |

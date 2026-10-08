@@ -58,6 +58,16 @@ class Config:
     # 0.0.0.0 only if friends should also join directly over the LAN.
     MC_GAME_BIND_IP = os.environ.get("MC_GAME_BIND_IP", "127.0.0.1")
 
+    # Largest world .zip the dashboard accepts, in MB. A world unpacks to at
+    # most 4x this (region files are already compressed, so real worlds stay
+    # well under; it stops zip bombs). Also caps every other request, see
+    # MAX_CONTENT_LENGTH in __init__.py.
+    WORLD_UPLOAD_MAX_MB = int(os.environ.get("WORLD_UPLOAD_MAX_MB", "10240"))
+
+    # Where the Wazuh dashboard is, for the link in the dashboard's top bar.
+    # Empty hides the link.
+    WAZUH_URL = os.environ.get("WAZUH_URL", "https://localhost")
+
     # Defaults for new worlds; each world can change them afterwards.
     MC_DEFAULT_TYPE = os.environ.get("MC_DEFAULT_TYPE", "SPIGOT")
     MC_DEFAULT_VERSION = os.environ.get("MC_DEFAULT_VERSION", "LATEST")

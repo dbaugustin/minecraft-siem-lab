@@ -7,11 +7,11 @@ from mcdash.containers import parse_stats
 
 def test_world_page_shows_stats_while_running(logged_in):
     post(logged_in, "/worlds", {"name": "survival"})
-    assert "CPU " not in logged_in.get("/worlds/survival").get_data(as_text=True)
+    assert "200.0" not in logged_in.get("/worlds/survival").get_data(as_text=True)
     post(logged_in, "/worlds/survival/start")
     page = logged_in.get("/worlds/survival").get_data(as_text=True)
-    assert "CPU 200.0%" in page
-    assert "RAM 1.5 GB of 16.0 GB" in page
+    assert "200.0<small>%</small>" in page
+    assert "1.5 <small>GB of 16.0</small>" in page
 
 
 def test_no_stats_when_stopped(logged_in, app):

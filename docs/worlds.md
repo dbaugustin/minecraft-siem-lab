@@ -56,15 +56,14 @@ You can move a world from another server (vanilla, Paper, a hosting service, Cra
 
 1. **Create the world** in the dashboard, for example `kingdoms`. **Don't start it yet.**
 2. **Set its version** on its page to the version the old server last ran, or newer. Opening a world in an older version than it was saved with can corrupt it. `LATEST` is fine if it's at least that version.
-3. **Find the old world folder.** It's the folder that contains `level.dat`. Its name was `level-name` in the old `server.properties`, usually `world`.
-4. **Copy it to `worlds/kingdoms/data/world`.** It must be called `world` here, whatever it was called before. On Windows, use File Explorer: open your clone's `worlds\kingdoms\data` folder and paste it in.
-   - From Spigot or Paper on 1.21 or older, there are also `world_nether` and `world_the_end` folders next to it. Copy those into `worlds/kingdoms/data/` too.
-   - From vanilla 1.21 or older, the nether and end are inside the world folder (`DIM-1`, `DIM1`). Leave them there; Spigot moves them on first start.
-   - From 26.1 or newer, the nether, end and player files are inside the world folder (`world/dimensions/`, `world/players/`). Leave that layout as it is.
-   - Don't copy the old `server.properties`, `whitelist.json` or `ops.json`; the dashboard writes those. `usercache.json` is fine to copy into `data/`.
-5. **Linux only:** give the files to the server's user: `sudo chown -R 1000:1000 worlds/kingdoms/data`.
-6. **Whitelist your players**, then **start** the world. On Spigot the first start compiles the server, so give it time and watch the log on the world page. You want to see the nether and end load, and no "creating new world" message.
-7. **Join and check** your base and inventory, then press **Back up now** so you have a known-good copy.
+3. **Zip the old world folder.** It's the folder that contains `level.dat`; its name was `level-name` in the old `server.properties`, usually `world`. On Windows, right-click it and choose **Compress to ZIP file**. A zip of the whole old server folder works too.
+   - From Spigot or Paper on 1.21 or older, there are also `world_nether` and `world_the_end` folders next to it. Zip all three together (select them, then compress); the upload recognises them.
+   - From vanilla 1.21 or older (nether and end in `DIM-1` and `DIM1`) or 26.1 or newer (`world/dimensions/`, `world/players/`), the one world folder has everything.
+4. **Upload it** under **Upload world** on the world's page. The dashboard finds the folder with `level.dat` and puts it in `worlds/kingdoms/data/world`, whatever it was called before. Anything else in the zip (`server.properties`, `whitelist.json`, plugins, jars) is ignored; the dashboard writes those itself. If the world already had files, they're moved to `worlds/.deleted/`, not erased.
+5. **Whitelist your players** (and make yourself an op if you like), then **start** the world. On Spigot the first start compiles the server, so give it time and watch the log on the world page. You want to see the nether and end load, and no "creating new world" message.
+6. **Join and check** your base and inventory, then press **Back up now** so you have a known-good copy.
+
+The upload limit is 10 GB (`WORLD_UPLOAD_MAX_MB` in `.env`), and the upload is checked before anything is written: entries that would land outside the world folder, symlinks, and zips that unpack to more than 4x the limit are refused and logged for Wazuh. For a world bigger than the limit, copy the folder to `worlds/<name>/data/world` by hand instead (on Linux, then run `sudo chown -R 1000:1000 worlds/<name>/data`).
 
 **Players start with empty inventories?** Player files are named by account UUID. Every world here runs in online mode, so a player keeps their stuff only if the old server was online mode too (the normal case). Files from an offline-mode server use different UUIDs; to carry one over, copy `playerdata/<old uuid>.dat` (or `players/data/` on 26.1+), plus the matching `advancements/` and `stats/` files, to the player's real UUID before they join. A player's real UUID is shown on namemc.com or in the server log when they first connect.
 

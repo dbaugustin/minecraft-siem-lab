@@ -62,9 +62,9 @@ To let friends join, point a [playit.gg](https://playit.gg) tunnel at the world'
 - [x] Auto-restart on crash
 - [x] Login with argon2-hashed password, sessions, CSRF protection and lockout
 - [x] Audit log of every dashboard action, with Wazuh rules
-- [ ] Console and operator controls from the dashboard (in progress)
-- [ ] Upload a world as a .zip from the dashboard (in progress)
-- [ ] Link to Wazuh from the dashboard (in progress)
+- [x] Server console and operator controls from the dashboard
+- [x] Upload a world as a .zip from the dashboard
+- [x] Link to Wazuh from the dashboard
 
 ## Repository layout
 

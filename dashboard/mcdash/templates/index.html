@@ -1,43 +1,48 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Worlds</h1>
+<div class="page-head">
+  <div>
+    <h1>Worlds</h1>
+    <p class="sub">{{ worlds | length }} world{{ '' if worlds | length == 1 else 's' }} · {{ worlds | selectattr('status', 'equalto', 'running') | list | length }} running</p>
+  </div>
+</div>
+
 {% if worlds %}
-<table>
-  <thead><tr><th>World</th><th>Status</th><th>Port</th><th>Type</th><th>Version</th><th></th></tr></thead>
-  <tbody>
+<div class="world-grid">
   {% for w in worlds %}
-    <tr>
-      <td><a href="{{ url_for('main.world', name=w.name) }}">{{ w.name }}</a></td>
-      <td class="status {{ w.status | replace(' ', '-') }}">{{ w.status }}</td>
-      <td>{{ w.port }}</td>
-      <td>{{ w.type }}</td>
-      <td>{{ w.version }}</td>
-      <td>
-        {% for action in (['stop', 'restart'] if w.status == 'running' else ['start']) %}
-        <form class="inline" method="post" action="{{ url_for('main.lifecycle', name=w.name, action=action) }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit">{{ action | capitalize }}</button>
-        </form>
-        {% endfor %}
-      </td>
-    </tr>
+  <article class="card world-card">
+    <div class="top">
+      <a class="name" href="{{ url_for('main.world', name=w.name) }}">{{ w.name }}</a>
+      <span class="pill {{ w.status | replace(' ', '-') }}">{{ w.status }}</span>
+    </div>
+    <dl class="meta">
+      <div><dt>Port</dt><dd>{{ w.port }}</dd></div>
+      <div><dt>Type</dt><dd>{{ w.type | lower }}</dd></div>
+      <div><dt>Version</dt><dd>{{ w.version | lower }}</dd></div>
+    </dl>
+    <div class="actions">
+      {% for action in (['stop', 'restart'] if w.status == 'running' else ['start']) %}
+      <form class="inline" method="post" action="{{ url_for('main.lifecycle', name=w.name, action=action) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="small {{ 'primary' if action == 'start' }}">{{ action | capitalize }}</button>
+      </form>
+      {% endfor %}
+      <a class="btn small ghost" href="{{ url_for('main.world', name=w.name) }}">Manage</a>
+    </div>
+  </article>
   {% endfor %}
-  </tbody>
-</table>
+</div>
 {% else %}
-<p class="muted">No worlds yet.</p>
+<div class="card world-grid-empty"><p class="hint">No worlds yet. Create one below, then start it or upload an existing world into it.</p></div>
 {% endif %}
 
-<section>
-  <h2>New world</h2>
-  <form method="post" action="{{ url_for('main.create_world') }}">
+<section class="card new-world">
+  <div class="card-head"><h2>New world</h2></div>
+  <form class="row" method="post" action="{{ url_for('main.create_world') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label>Name <input name="name" required maxlength="32" pattern="[a-z0-9][a-z0-9_\-]*" placeholder="survival"></label>
-    <button type="submit">Create</button>
+    <input name="name" required maxlength="32" pattern="[a-z0-9][a-z0-9_\-]*" placeholder="survival" aria-label="World name">
+    <button type="submit" class="primary">Create</button>
   </form>
-  <p class="muted">Lowercase letters, digits, - and _. To import an existing world, create it here
-  without starting it, then copy the old world folder to <code>worlds/&lt;name&gt;/data/world</code>
-  (full steps under "Importing an existing world" in the README).
-  The new world gets the next free port from {{ config.MC_BASE_PORT }} up and the defaults from <code>.env</code>; change them on its page.</p>
+  <p class="hint">Lowercase letters, digits, - and _. You can upload an existing world on its page.</p>
 </section>
 {% endblock %}
