@@ -462,3 +462,51 @@ def test_delete_refused_with_foreign_container(logged_in, docker_fake, audit_pat
 
 def test_delete_unknown_world_404(logged_in):
     assert post(logged_in, "/worlds/nope/delete", {"confirm": "nope"}).status_code == 404
+
+
+def test_backup_in_progress_is_not_listed_and_blocks_other_actions(logged_in, app, tmp_path, monkeypatch):
+    """A long backup holds the world's lock. While it runs, its half-written
+    archive must not show up as a finished backup, and other actions should
+    say a backup is what they are waiting for. Afterwards the lock is free."""
+    import threading
+
+    from mcdash.service import WorldBusyError
+
+    create(logged_in)
+    svc = app.extensions["worlds"]
+    backups = tmp_path / "backups" / "survival"
+    writing, release = threading.Event(), threading.Event()
+    real_add = tarfile.TarFile.add
+
+    def slow_add(self, *a, **k):
+        real_add(self, *a, **k)
+        writing.set()
+        assert release.wait(10)
+
+    monkeypatch.setattr("tarfile.TarFile.add", slow_add)
+    result = {}
+    worker = threading.Thread(target=lambda: result.setdefault("file", svc.backup("survival")))
+    worker.start()
+    try:
+        assert writing.wait(10)
+        # The archive exists on disk but is not listed yet.
+        assert any(backups.iterdir())
+        assert svc.list_backups("survival") == []
+        page = logged_in.get("/worlds/survival").get_data(as_text=True)
+        assert "A backup is being written" in page
+        # Other actions name the backup instead of a vague "another action".
+        with pytest.raises(WorldBusyError, match="A backup has been running"):
+            with svc.locked("survival", "settings"):
+                pass
+    finally:
+        release.set()
+        worker.join(10)
+
+    assert [b["file"] for b in svc.list_backups("survival")] == [result["file"]]
+    assert [p.name for p in backups.iterdir()] == [result["file"]]
+    assert svc.busy("survival") is None
+    page = logged_in.get("/worlds/survival").get_data(as_text=True)
+    assert "A backup is being written" not in page
+    # The lock was released: saving settings goes through straight away.
+    post(logged_in, "/worlds/survival/settings", settings_form(world_json(app), version="1.21.4"))
+    assert world_json(app)["version"] == "1.21.4"

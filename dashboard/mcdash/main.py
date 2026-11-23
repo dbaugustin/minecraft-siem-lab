@@ -7,6 +7,7 @@ rules in wazuh/rules/mc_dashboard_rules.xml match on.
 """
 
 import os
+import time
 
 from flask import (
     Blueprint,
@@ -96,6 +97,7 @@ def world(name):
         stats=svc.containers.stats(name),
         players=svc.online_players(world),
         backups=svc.list_backups(name),
+        backup_running_min=backup_running_minutes(svc, name),
         log_lines=svc.log_tail(name),
         console=svc.console_history(name),
         has_world=os.path.isdir(os.path.join(svc.store.data_dir(name), "world")),
@@ -103,6 +105,14 @@ def world(name):
         difficulties=DIFFICULTIES,
         gamemodes=GAMEMODES,
     )
+
+
+def backup_running_minutes(svc, name):
+    """Whole minutes a backup of the world has been running, or None if none is."""
+    holder = svc.busy(name)
+    if holder is None or holder[0] != "backup":
+        return None
+    return int((time.time() - holder[1]) // 60)
 
 
 # Button name -> (service method, audit event, past tense for the message)

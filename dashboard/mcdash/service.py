@@ -5,7 +5,9 @@ ContainerError or RconError with a message for the user on failure. Auditing
 happens in the views, so a failed action never writes a success event.
 
 Actions on one world are serialised with a per-world lock: gunicorn runs
-several threads, and two overlapping "recreate" calls would race.
+several threads, and two overlapping "recreate" calls would race. The service
+remembers which action holds each lock and since when, so a refused action can
+say what it is waiting for and the world page can show a backup in progress.
 """
 
 import json
@@ -13,6 +15,7 @@ import os
 import re
 import tarfile
 import threading
+import time
 from collections import deque
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -26,6 +29,13 @@ from .worlds import WorldError, parse_settings, valid_player
 # command output; they mean nothing in a browser.
 FORMAT_CODE_RE = re.compile("\u00a7.")
 CONSOLE_HISTORY = 30
+
+# A backup is written under this suffix and renamed when it is complete, so a
+# half-written archive is never listed, pruned or mistaken for a finished one.
+PARTIAL_SUFFIX = ".partial"
+# Gzip level for backups. Region files are already zlib-compressed, so level 9
+# (tarfile's default) costs minutes on a multi-GB world for almost no saving.
+BACKUP_COMPRESSLEVEL = 1
 
 
 class WorldBusyError(WorldError):
@@ -48,20 +58,38 @@ class WorldService:
         self.backup_dir = backup_dir
         self._locks = {}
         self._locks_guard = threading.Lock()
+        # World name -> (action, time.time() it started), while its lock is held.
+        self._busy = {}
         # Recent console commands and their output, per world. In memory
         # only: gunicorn runs a single worker, and losing it on restart is fine.
         self._console = {}
 
     @contextmanager
-    def locked(self, name):
+    def locked(self, name, action="change"):
         with self._locks_guard:
             lock = self._locks.setdefault(name, threading.Lock())
         if not lock.acquire(timeout=5):
-            raise WorldBusyError("Another action on this world is still running. Try again shortly.")
+            raise WorldBusyError(self._busy_message(name))
+        self._busy[name] = (action, time.time())
         try:
             yield
         finally:
+            self._busy.pop(name, None)
             lock.release()
+
+    def busy(self, name):
+        """(action, started) for the action holding the world's lock, or None."""
+        return self._busy.get(name)
+
+    def _busy_message(self, name):
+        holder = self.busy(name)
+        if holder is None:
+            return "Another action on this world is still running. Try again shortly."
+        action, started = holder
+        minutes = int((time.time() - started) // 60)
+        since = "under a minute" if minutes < 1 else f"{minutes} minute{'s' if minutes != 1 else ''}"
+        what = "A backup" if action == "backup" else f"Another action ({action})"
+        return f"{what} has been running on this world for {since}. Try again when it finishes."
 
     # ---- RCON ----
 
@@ -88,15 +116,15 @@ class WorldService:
     # ---- Lifecycle ----
 
     def start(self, name):
-        with self.locked(name):
+        with self.locked(name, "start"):
             self.containers.start(self.store.load(name))
 
     def stop(self, name):
-        with self.locked(name):
+        with self.locked(name, "stop"):
             self.containers.stop(self.store.load(name))
 
     def restart(self, name):
-        with self.locked(name):
+        with self.locked(name, "restart"):
             self.containers.restart(self.store.load(name))
 
     # ---- Delete ----
@@ -109,7 +137,7 @@ class WorldService:
         A running world must be stopped first, so it gets to save.
         Returns the path the folder was moved to.
         """
-        with self.locked(name):
+        with self.locked(name, "delete"):
             self.store.load(name)  # 404s on unknown names before touching Docker
             if self.containers.status(name) in ("running", "restarting"):
                 raise WorldError(f"Stop {name} before deleting it.")
@@ -121,7 +149,7 @@ class WorldService:
 
     def update_settings(self, name, form):
         """Save new settings and rebuild the container. Returns changed keys."""
-        with self.locked(name):
+        with self.locked(name, "settings"):
             world = self.store.load(name)
             other_ports = {w["port"] for w in self.store.all() if w["name"] != name}
             updated, changed = parse_settings(form, world, other_ports)
@@ -141,7 +169,7 @@ class WorldService:
     def whitelist_add(self, name, player):
         if not valid_player(player):
             raise WorldError("Player names are 3-16 letters, digits or underscores.")
-        with self.locked(name):
+        with self.locked(name, "whitelist"):
             world = self.store.load(name)
             if player.lower() in (p.lower() for p in world["whitelist"]):
                 raise WorldError(f"{player} is already on the whitelist.")
@@ -158,7 +186,7 @@ class WorldService:
             self.store.save(world)
 
     def whitelist_remove(self, name, player):
-        with self.locked(name):
+        with self.locked(name, "whitelist"):
             world = self.store.load(name)
             match = next((p for p in world["whitelist"] if p.lower() == player.lower()), None)
             if match is None:
@@ -183,7 +211,7 @@ class WorldService:
     # ---- Operators ----
 
     def op_add(self, name, player):
-        with self.locked(name):
+        with self.locked(name, "operators"):
             world = self.store.load(name)
             match = next((p for p in world["whitelist"] if p.lower() == player.lower()), None)
             if match is None:
@@ -199,7 +227,7 @@ class WorldService:
             return match
 
     def op_remove(self, name, player):
-        with self.locked(name):
+        with self.locked(name, "operators"):
             world = self.store.load(name)
             match = self._deop(world, player)
             self.store.save(world)
@@ -241,7 +269,7 @@ class WorldService:
             raise WorldError("Type a command first.")
         if any(ch in command for ch in "\r\n\x00"):
             raise WorldError("Commands are one line.")
-        with self.locked(name):
+        with self.locked(name, "console"):
             world = self.store.load(name)
             if not self.is_running(name):
                 raise WorldError(f"Start {name} to use the console.")
@@ -262,7 +290,7 @@ class WorldService:
         The server must be stopped, so it doesn't overwrite the new world
         with the old one on its next save. Returns (bytes, moved_aside).
         """
-        with self.locked(name):
+        with self.locked(name, "upload"):
             self.store.load(name)
             if self.containers.status(name) in ("running", "restarting"):
                 raise WorldError(f"Stop {name} before uploading a world.")
@@ -292,13 +320,14 @@ class WorldService:
         On a running server, autosave is paused and the world flushed to disk
         first, so the archive isn't taken halfway through a save.
         """
-        with self.locked(name):
+        with self.locked(name, "backup"):
             world = self.store.load(name)
             stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
             filename = f"{name}-{stamp}.tar.gz"
             directory = self.world_backup_dir(name)
             os.makedirs(directory, exist_ok=True)
             path = os.path.join(directory, filename)
+            partial = os.path.join(directory, f".{filename}{PARTIAL_SUFFIX}")
 
             rcon = None
             if self.is_running(name):
@@ -308,11 +337,12 @@ class WorldService:
                 if rcon:
                     rcon.command("save-off")
                     rcon.command("save-all flush")
-                with tarfile.open(path, "w:gz") as tar:
+                with tarfile.open(partial, "w:gz", compresslevel=BACKUP_COMPRESSLEVEL) as tar:
                     tar.add(self.store.data_dir(name), arcname=name)
+                os.replace(partial, path)
             except BaseException:
-                if os.path.exists(path):
-                    os.remove(path)
+                if os.path.exists(partial):
+                    os.remove(partial)
                 raise
             finally:
                 if rcon:
