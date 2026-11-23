@@ -163,6 +163,9 @@
           <button type="submit" class="small">Back up now</button>
         </form>
       </div>
+      {% if backup_running_min is not none %}
+      <p class="hint">A backup is being written (started {% if backup_running_min < 1 %}under a minute{% else %}{{ backup_running_min }} min{% endif %} ago). Other changes to this world wait until it finishes; reload to check.</p>
+      {% endif %}
       {% if backups %}
       <ul class="list">
         {% for b in backups %}<li><span>{{ b.file }}</span><span class="size">{{ (b.size / 1048576) | round(1) }} MB</span></li>{% endfor %}
